@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: bium
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/bium}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false
+
+cors:
+  # 쉼표로 구분한 프론트 주소 목록
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
