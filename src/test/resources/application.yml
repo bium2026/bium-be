@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:bium;MODE=MySQL
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+cors:
+  allowed-origins: http://localhost:3000,http://localhost:5173
