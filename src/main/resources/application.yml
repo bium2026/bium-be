@@ -29,3 +29,10 @@ gemini:
   temperature: 0.55
   connect-timeout: 5s
   read-timeout: 30s
+
+recipe:
+  recommendation:
+    # IP당 분당 추천 요청 수
+    rate-limit-per-minute: ${RECIPE_RECOMMENDATION_RATE_LIMIT:5}
+    # 서버 전체 분당 추천 요청 수. Gemini 분당 한도보다 낮게 둔다
+    global-rate-limit-per-minute: ${RECIPE_RECOMMENDATION_GLOBAL_RATE_LIMIT:15}

@@ -21,3 +21,8 @@ gemini:
   temperature: 0.55
   connect-timeout: 1s
   read-timeout: 1s
+
+recipe:
+  recommendation:
+    rate-limit-per-minute: 1000
+    global-rate-limit-per-minute: 1000
