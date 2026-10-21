@@ -1,0 +1,221 @@
+Enum storage_type {
+  FRIDGE   [note: '냉장실']
+  FREEZER  [note: '냉동실']
+  ROOM     [note: '실온']
+}
+
+Enum section_type {
+  DOOR     [note: '문칸']
+  CENTER   [note: '중앙 칸']
+}
+
+Enum member_role {
+  OWNER
+  MEMBER
+}
+
+// ───────── 회원·냉장고·공유 ─────────
+Table users {
+  id          bigint [pk, increment]
+  email       varchar(255) [unique, not null, note: '로그인 ID이자 유통기한 알림 메일 수신 주소']
+  password    varchar(255) [not null, note: 'BCrypt 해시']
+  nickname    varchar(30)  [not null]
+  created_at  datetime
+  updated_at  datetime
+}
+
+Table fridges {
+  id          bigint [pk, increment]
+  name        varchar(50) [not null]
+  is_public   boolean [default: false, note: '피드 공개 여부']
+  created_at  datetime
+  updated_at  datetime
+}
+
+Table fridge_members {
+  id          bigint [pk, increment]
+  fridge_id   bigint [ref: > fridges.id, not null]
+  user_id     bigint [ref: > users.id, not null]
+  role        member_role [not null]
+  joined_at   datetime
+  indexes { (fridge_id, user_id) [unique] }
+}
+
+Table fridge_invites {
+  id          bigint [pk, increment]
+  fridge_id   bigint [ref: > fridges.id, not null]
+  code        varchar(12) [unique, not null]
+  created_by  bigint [ref: > users.id]
+  expires_at  datetime
+  is_active   boolean [default: true]
+  created_at  datetime
+}
+
+// ───────── 도감·영양 ─────────
+Table ingredient_catalog {
+  id                  bigint [pk, increment]
+  owner_id            bigint [ref: > users.id, null, note: 'NULL=공용 도감, 값=사용자 커스텀']
+  owner_key           bigint [not null, note: '생성 컬럼: GENERATED ALWAYS AS (IFNULL(owner_id, 0)) (VIRTUAL). 공용 도감 이름 중복을 막기 위한 unique 전용']
+  name                varchar(50) [not null]
+  category            varchar(30)
+  default_storage     storage_type
+  shelf_life_days     int  [note: '기본 유통기한(일)']
+  purchase_cycle_days int  [note: '기본 구매 주기(일)']
+  default_unit        varchar(10)
+  indexes { (owner_key, name) [unique] }
+}
+
+Table nutrition_info {
+  catalog_id      bigint [pk, ref: - ingredient_catalog.id]
+  food_code       varchar(30) [note: '식품영양성분 DB 식품코드']
+  base_amount_g   decimal(7,2) [default: 100]
+  calories_kcal   decimal(7,2)
+  carbohydrate_g  decimal(7,2)
+  protein_g       decimal(7,2)
+  fat_g           decimal(7,2)
+  fetched_at      datetime
+}
+
+// ───────── 냉장고 속 재료 ─────────
+Table fridge_items {
+  id                  bigint [pk, increment]
+  fridge_id           bigint [ref: > fridges.id, not null]
+  catalog_id          bigint [ref: > ingredient_catalog.id, null]
+  name                varchar(50) [not null]
+  quantity            decimal(8,2) [not null]
+  unit                varchar(10)
+  storage             storage_type [not null]
+  section             section_type [not null]
+  sort_order          int [not null]
+  purchased_at        date
+  expires_at          date
+  purchase_cycle_days int  [note: '도감 값 복사, 개별 수정 가능']
+  created_by          bigint [ref: > users.id, note: '등록자 표시']
+  version             int  [not null, default: 0, note: 'JPA @Version 낙관적 락']
+  deleted_at          datetime [null, note: '소프트 삭제']
+  created_at          datetime
+  updated_at          datetime
+  indexes {
+    (fridge_id, storage, section, sort_order)
+    expires_at
+  }
+}
+
+Table purchased_items {   // 장본 음식 (냉장고에 넣기 전 단계)
+  id              bigint [pk, increment]
+  fridge_id       bigint [ref: > fridges.id, not null, note: '넣을 냉장고']
+  user_id         bigint [ref: > users.id, not null, note: '장 본 사람']
+  catalog_id      bigint [ref: > ingredient_catalog.id, null]
+  name            varchar(50) [not null]
+  quantity        decimal(8,2)
+  unit            varchar(10)
+  storage         storage_type [note: '도감 기본값으로 채움']
+  purchased_at    date
+  expires_at      date
+  source          varchar(10) [note: 'MANUAL / RECEIPT']
+  fridge_item_id  bigint [ref: - fridge_items.id, null, unique, note: '냉장고로 옮겨 생성된 재료. NULL=아직 안 넣음']
+  moved_at        datetime [null, note: '냉장고로 옮긴 시각']
+  created_at      datetime
+  indexes { (fridge_id, moved_at) }
+}
+
+Table shopping_list_items {   // 장보기 목록 (냉장고 단위로 공유)
+  id          bigint [pk, increment]
+  fridge_id   bigint [ref: > fridges.id, not null]
+  created_by  bigint [ref: > users.id, not null, note: '목록에 담은 사람']
+  catalog_id  bigint [ref: > ingredient_catalog.id, null]
+  recipe_id   bigint [ref: > recipes.id, null, note: '부족 재료 추천에서 담은 경우']
+  name        varchar(50) [not null]
+  quantity    decimal(8,2)
+  unit        varchar(10)
+  is_checked  boolean [default: false]
+  created_at  datetime
+  indexes { (fridge_id, is_checked) }
+}
+
+// ───────── 레시피·차감 ─────────
+Table recipes {
+  id            bigint [pk, increment]
+  fridge_id     bigint [ref: > fridges.id, not null]
+  requested_by  bigint [ref: > users.id]
+  type          varchar(10) [note: 'RECOMMEND(보유 재료) / TARGET(만들고 싶은 음식)']
+  title         varchar(100) [not null]
+  summary       varchar(255)
+  steps         json
+  cook_minutes  int
+  servings      int
+  created_at    datetime
+}
+
+Table recipe_ingredients {
+  id           bigint [pk, increment]
+  recipe_id    bigint [ref: > recipes.id, not null]
+  catalog_id   bigint [ref: > ingredient_catalog.id, null]
+  name         varchar(50) [not null]
+  quantity     decimal(8,2)
+  unit         varchar(10)
+  is_required  boolean [default: true]
+}
+
+Table cooking_logs {   // 차감 기록(헤더)
+  id         bigint [pk, increment]
+  fridge_id  bigint [ref: > fridges.id, not null]
+  recipe_id  bigint [ref: > recipes.id, not null]
+  user_id    bigint [ref: > users.id, not null]
+  cooked_at  datetime
+  undone_at  datetime [null, note: '되돌리기 시각. 값이 있으면 다시 되돌릴 수 없음']
+}
+
+Table cooking_log_items {   // 차감 기록(상세)
+  id                 bigint [pk, increment]
+  cooking_log_id     bigint [ref: > cooking_logs.id, not null]
+  fridge_item_id     bigint [ref: > fridge_items.id, not null]
+  quantity_before    decimal(8,2) [note: '기록용. 되돌리기에 쓰지 않음']
+  deducted_quantity  decimal(8,2) [not null, note: '되돌리기 = 현재 수량 + deducted_quantity']
+  deleted_by_deduction boolean [not null, default: false, note: '이 차감으로 수량이 0이 되어 소프트 삭제됐는지. true면 되돌릴 때 deleted_at을 NULL로 복구']
+}
+
+// ───────── 활동·알림·피드 ─────────
+Table activity_logs {
+  id              bigint [pk, increment]
+  fridge_id       bigint [ref: > fridges.id, not null]
+  user_id         bigint [ref: > users.id, not null]
+  fridge_item_id  bigint [ref: > fridge_items.id, null]
+  item_name       varchar(50) [note: '재료 삭제 후에도 보이도록 스냅샷']
+  action          varchar(20) [note: 'ADD/UPDATE/MOVE/DELETE/DEDUCT/RESTORE/JOIN/LEAVE']
+  detail          json
+  created_at      datetime
+  indexes { (fridge_id, created_at) }
+}
+
+Table notification_settings {   // 알림은 이메일로 보내며 수신 주소는 users.email
+  user_id         bigint [pk, ref: - users.id]
+  enabled         boolean [default: true]
+  notify_time     time
+  notify_d3       boolean [default: true]
+  notify_dday     boolean [default: true]
+  last_sent_date  date [note: '같은 날 중복 발송 방지']
+}
+
+Table notification_logs {
+  id             bigint [pk, increment]
+  user_id        bigint [ref: > users.id]
+  sent_at        datetime
+  item_count     int
+  status         varchar(10) [note: 'SUCCESS / FAIL']
+  error_message  varchar(500)
+}
+
+Table feed_likes {
+  user_id    bigint [ref: > users.id]
+  fridge_id  bigint [ref: > fridges.id]
+  created_at datetime
+  indexes { (user_id, fridge_id) [pk] }
+}
+
+Table feed_saves {
+  user_id    bigint [ref: > users.id]
+  fridge_id  bigint [ref: > fridges.id]
+  created_at datetime
+  indexes { (user_id, fridge_id) [pk] }
+}
