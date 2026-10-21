@@ -13,6 +13,8 @@ public enum ErrorCode {
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
 	LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다."),
 	DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
+	FRIDGE_NOT_FOUND(HttpStatus.NOT_FOUND, "냉장고를 찾을 수 없습니다."),
+	RECIPE_NOT_FOUND(HttpStatus.NOT_FOUND, "레시피를 찾을 수 없습니다."),
 	NO_USABLE_INGREDIENT(HttpStatus.UNPROCESSABLE_CONTENT, "유통기한이 남아 있는 재료가 없어 추천할 수 없습니다."),
 	TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
 	AI_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "레시피 추천에 실패했습니다. 잠시 후 다시 시도해 주세요."),
