@@ -29,6 +29,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class NotificationLog {
 
+	private static final int ERROR_MESSAGE_MAX_LENGTH = 500;
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -47,14 +49,17 @@ public class NotificationLog {
 	@Column(length = 10)
 	private NotificationStatus status;
 
-	@Column(length = 500)
+	@Column(length = ERROR_MESSAGE_MAX_LENGTH)
 	private String errorMessage;
 
 	public NotificationLog(User user, Integer itemCount, NotificationStatus status, String errorMessage) {
 		this.user = user;
 		this.itemCount = itemCount;
 		this.status = status;
-		this.errorMessage = errorMessage;
+		// 메일 예외 메시지는 SMTP 응답 등으로 길어질 수 있고, 컬럼 길이를 넘으면 실패 기록 자체가 저장되지 않는다
+		this.errorMessage = (errorMessage != null && errorMessage.length() > ERROR_MESSAGE_MAX_LENGTH)
+			? errorMessage.substring(0, ERROR_MESSAGE_MAX_LENGTH)
+			: errorMessage;
 	}
 
 }
