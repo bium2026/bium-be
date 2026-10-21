@@ -21,3 +21,11 @@ jwt:
   # HS256 서명 키, 32바이트 이상 (예: openssl rand -base64 32)
   secret: ${JWT_SECRET}
   access-token-validity: 1h
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-2.5-flash-lite}
+  base-url: https://generativelanguage.googleapis.com
+  temperature: 0.55
+  connect-timeout: 5s
+  read-timeout: 30s
