@@ -2,6 +2,9 @@ package com.bium.domain.recipe.recommendation;
 
 import java.util.List;
 
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
+
 /**
  * 걸러내고 기본값을 채운 추천 레시피다.
  * fridgeMatches는 AI가 준 이름 중 냉장고에 실제로 있는 것만, usedIngredients는 그 이름과 연결한 냉장고 재료다.

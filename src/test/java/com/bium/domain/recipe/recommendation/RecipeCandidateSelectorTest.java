@@ -8,6 +8,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
+
 class RecipeCandidateSelectorTest {
 
 	private static final RecommendationIngredient TOFU = ingredient(1L, "두부");

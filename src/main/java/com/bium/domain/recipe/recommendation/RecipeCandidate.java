@@ -2,6 +2,9 @@ package com.bium.domain.recipe.recommendation;
 
 import java.util.List;
 
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
+
 /**
  * AI가 준 레시피 후보다. 값이 없거나 형식이 틀리면 null이고, 걸러내기 전 상태다.
  */

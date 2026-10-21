@@ -12,6 +12,9 @@ import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
+
 /**
  * AI 후보 중 냉장고 재료로 만들 수 있는 평범한 집밥만 남기고, 서로 다른 레시피 4개를 고른다.
  */

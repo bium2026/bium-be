@@ -1,4 +1,4 @@
-package com.bium.domain.recipe.recommendation;
+package com.bium.domain.recipe.entity;
 
 public enum IngredientSource {
 

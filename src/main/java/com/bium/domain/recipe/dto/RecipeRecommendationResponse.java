@@ -2,7 +2,7 @@ package com.bium.domain.recipe.dto;
 
 import java.util.List;
 
-import com.bium.domain.recipe.recommendation.RecipeDifficulty;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
 import com.bium.domain.recipe.recommendation.RecommendationIngredient;
 import com.bium.domain.recipe.recommendation.RecommendedRecipe;
 
