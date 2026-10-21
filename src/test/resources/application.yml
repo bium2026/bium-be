@@ -9,3 +9,7 @@ spring:
 
 cors:
   allowed-origins: http://localhost:3000,http://localhost:5173
+
+jwt:
+  secret: test-only-jwt-secret-key-for-bium-tests
+  access-token-validity: 1h

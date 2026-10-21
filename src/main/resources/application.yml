@@ -13,3 +13,8 @@ spring:
 cors:
   # 쉼표로 구분한 프론트 주소 목록
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+jwt:
+  # HS256 서명 키, 32바이트 이상 (예: openssl rand -base64 32)
+  secret: ${JWT_SECRET}
+  access-token-validity: 1h
