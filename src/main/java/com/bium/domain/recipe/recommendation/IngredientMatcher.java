@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 /**
  * 재료 이름 비교 규칙이다.
  * 글자와 숫자만 남겨 비교하고, 한쪽 이름이 다른 쪽을 포함하면 같은 재료로 본다.
+ * "파"와 "양파"처럼 한 글자 이름은 다른 재료에 쉽게 포함되므로, 한 글자 이름은 완전히 같을 때만 같은 재료로 본다.
  */
 public class IngredientMatcher {
 
@@ -18,6 +19,9 @@ public class IngredientMatcher {
 		.stream()
 		.map(IngredientMatcher::normalize)
 		.collect(Collectors.toUnmodifiableSet());
+
+	// 부분 일치로 비교할 이름의 최소 글자 수
+	private static final int MIN_PARTIAL_MATCH_LENGTH = 2;
 
 	private final List<String> availableNames;
 	private final List<String> normalizedAvailableNames;
@@ -43,7 +47,7 @@ public class IngredientMatcher {
 		if (normalizedName.isEmpty() || normalizedOtherName.isEmpty()) {
 			return false;
 		}
-		return normalizedName.contains(normalizedOtherName) || normalizedOtherName.contains(normalizedName);
+		return overlaps(normalizedName, normalizedOtherName);
 	}
 
 	public List<String> availableNames() {
@@ -56,7 +60,7 @@ public class IngredientMatcher {
 			return false;
 		}
 		return normalizedAvailableNames.stream()
-			.anyMatch(available -> normalizedName.contains(available) || available.contains(normalizedName));
+			.anyMatch(available -> overlaps(normalizedName, available));
 	}
 
 	public boolean isBasic(String name) {
@@ -66,6 +70,15 @@ public class IngredientMatcher {
 
 	public boolean isAllowed(String name) {
 		return isAvailable(name) || isBasic(name);
+	}
+
+	private static boolean overlaps(String name, String otherName) {
+		if (name.equals(otherName)) {
+			return true;
+		}
+		String shorter = name.length() <= otherName.length() ? name : otherName;
+		String longer = shorter == name ? otherName : name;
+		return shorter.length() >= MIN_PARTIAL_MATCH_LENGTH && longer.contains(shorter);
 	}
 
 }
