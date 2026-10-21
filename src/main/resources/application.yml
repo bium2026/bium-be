@@ -1,6 +1,9 @@
 spring:
   application:
     name: bium
+  config:
+    # 프로젝트 루트의 .env를 읽는다. 파일이 없으면 넘어가고, OS 환경변수가 .env보다 우선한다
+    import: optional:file:.env[.properties]
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/bium}
     username: ${DB_USERNAME}
