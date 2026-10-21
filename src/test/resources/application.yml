@@ -6,6 +6,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    properties:
+      # 엔티티 매핑으로 테이블을 만들다 실패하면 로그만 남기지 않고 테스트를 실패시킨다
+      hibernate.hbm2ddl.halt_on_error: true
 
 cors:
   allowed-origins: http://localhost:3000,http://localhost:5173
