@@ -7,7 +7,7 @@ import com.bium.domain.recipe.entity.RecipeDifficulty;
 
 /**
  * 걸러내고 기본값을 채운 추천 레시피다.
- * fridgeMatches는 AI가 준 이름 중 냉장고에 실제로 있는 것만, usedIngredients는 그 이름과 연결한 냉장고 재료다.
+ * fridgeMatches는 AI가 준 이름 중 냉장고에 실제로 있는 것만 남긴 목록이다.
  */
 public record RecommendedRecipe(
 	String name,
@@ -21,8 +21,7 @@ public record RecommendedRecipe(
 	List<String> steps,
 	List<String> tips,
 	Nutrition nutrition,
-	List<String> fridgeMatches,
-	List<RecommendationIngredient> usedIngredients
+	List<String> fridgeMatches
 ) {
 
 	public record Ingredient(String name, String amount, IngredientSource source, boolean required) {

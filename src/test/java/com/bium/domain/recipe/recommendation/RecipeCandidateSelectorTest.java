@@ -113,16 +113,6 @@ class RecipeCandidateSelectorTest {
 		assertThat(result.fridgeMatches()).containsExactly("두부");
 	}
 
-	@Test
-	void AI가_준_재료_이름을_냉장고_재료와_연결한다() {
-		RecipeCandidate recipe = candidate("두부 계란 볶음", List.of(required("두부"), required("계란")),
-			List.of("계란", "두부", "두부"));
-
-		RecommendedRecipe result = selector.select(List.of(recipe), FRIDGE).get(0);
-
-		assertThat(result.usedIngredients()).containsExactly(EGG, TOFU);
-	}
-
 	private static RecommendationIngredient ingredient(Long id, String name) {
 		return new RecommendationIngredient(id, name, "🥚", LocalDate.of(2026, 10, 20));
 	}

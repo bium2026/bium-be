@@ -77,7 +77,6 @@ class RecipeRecommendationServiceTest {
 		assertThat(recipe.difficulty()).isEqualTo(RecipeDifficulty.EASY);
 		assertThat(recipe.ingredients()).extracting(RecommendedRecipe.Ingredient::source)
 			.containsExactly(IngredientSource.FRIDGE, IngredientSource.FRIDGE, IngredientSource.BASIC);
-		assertThat(recipe.usedIngredients()).containsExactly(tofu, egg);
 		assertThat(recipe.nutrition()).isEqualTo(new RecommendedRecipe.Nutrition(24, 52, 14));
 	}
 
