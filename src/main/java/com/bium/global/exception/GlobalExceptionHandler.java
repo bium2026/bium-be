@@ -19,6 +19,15 @@ import lombok.extern.slf4j.Slf4j;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+	// 다시 시도할 수 있는 시각을 Retry-After 헤더로 알려 준다
+	@ExceptionHandler(TooManyRequestsException.class)
+	public ResponseEntity<ApiResponse<Void>> handleTooManyRequestsException(TooManyRequestsException e) {
+		ErrorCode errorCode = e.getErrorCode();
+		return ResponseEntity.status(errorCode.getStatus())
+			.header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+			.body(ApiResponse.error(errorCode));
+	}
+
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
 		ErrorCode errorCode = e.getErrorCode();

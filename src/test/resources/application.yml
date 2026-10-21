@@ -16,3 +16,16 @@ cors:
 jwt:
   secret: test-only-jwt-secret-key-for-bium-tests
   access-token-validity: 1h
+
+gemini:
+  api-key: test-api-key
+  model: gemini-test
+  base-url: http://localhost:0
+  temperature: 0.55
+  connect-timeout: 1s
+  read-timeout: 1s
+
+recipe:
+  recommendation:
+    rate-limit-per-minute: 1000
+    global-rate-limit-per-minute: 1000
