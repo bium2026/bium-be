@@ -82,6 +82,7 @@ Table fridge_items {
   fridge_id           bigint [ref: > fridges.id, not null]
   catalog_id          bigint [ref: > ingredient_catalog.id, null]
   name                varchar(50) [not null]
+  emoji               varchar(16) [note: '냉장고 화면 아이콘']
   quantity            decimal(8,2) [not null]
   unit                varchar(10)
   storage             storage_type [not null]
@@ -140,10 +141,17 @@ Table recipes {
   requested_by  bigint [ref: > users.id]
   type          varchar(10) [note: 'RECOMMEND(보유 재료) / TARGET(만들고 싶은 음식)']
   title         varchar(100) [not null]
+  emoji         varchar(16)
   summary       varchar(255)
   steps         json
+  tips          json
   cook_minutes  int
+  difficulty    varchar(10) [note: 'EASY / NORMAL / HARD']
   servings      int
+  calories_kcal int
+  protein_g     int [note: '1인분 영양 정보(g)']
+  carbohydrate_g int
+  fat_g         int
   created_at    datetime
 }
 
@@ -154,6 +162,8 @@ Table recipe_ingredients {
   name         varchar(50) [not null]
   quantity     decimal(8,2)
   unit         varchar(10)
+  amount       varchar(50) [note: 'AI가 주는 분량 문자열 (예: 1/2모, 1큰술)']
+  source       varchar(10) [note: 'FRIDGE(냉장고 재료) / BASIC(기본 양념)']
   is_required  boolean [default: true]
 }
 

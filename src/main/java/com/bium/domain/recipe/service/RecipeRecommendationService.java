@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 냉장고 재료로 Gemini에 레시피를 요청하고, 걸러낸 추천 레시피를 돌려준다.
- * 저장은 레시피 엔티티가 생긴 뒤 붙인다.
+ * 저장은 하지 않으며, 냉장고 조회와 저장은 RecipeService가 맡는다.
  */
 @Service
 @RequiredArgsConstructor

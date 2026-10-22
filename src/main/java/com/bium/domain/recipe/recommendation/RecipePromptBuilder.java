@@ -2,6 +2,7 @@ package com.bium.domain.recipe.recommendation;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -11,6 +12,11 @@ public class RecipePromptBuilder {
 
 	// 프롬프트가 지나치게 길어지지 않게 유통기한이 가까운 재료부터 이 개수만 넣는다
 	public static final int MAX_PROMPT_INGREDIENTS = 30;
+
+	// 저장된 재료 이름에 줄바꿈이 섞여 있어도 프롬프트의 줄이 나뉘지 않게 공백으로 바꾼다
+	private static final Pattern NAME_LINE_BREAK = Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]+");
+	// 이모지는 여러 글자를 잇는 ZWJ(U+200D)가 형식 문자라서 형식 문자는 남긴다
+	private static final Pattern EMOJI_LINE_BREAK = Pattern.compile("[\\p{Cc}\\p{Zl}\\p{Zp}]+");
 
 	private static final String PROMPT_TEMPLATE = """
 		너는 1인 가구를 위한 냉장고 재료 기반 레시피 추천 AI야.
@@ -69,14 +75,18 @@ public class RecipePromptBuilder {
 		String ingredientLines = ingredients.stream()
 			.limit(MAX_PROMPT_INGREDIENTS)
 			.map(ingredient -> "- %s (%s) / %s".formatted(
-				ingredient.name(),
-				ingredient.emoji() == null ? "" : ingredient.emoji(),
+				clean(ingredient.name(), NAME_LINE_BREAK),
+				clean(ingredient.emoji(), EMOJI_LINE_BREAK),
 				ingredient.daysLeft(today) == null ? "유통기한 없음" : "D-" + ingredient.daysLeft(today)))
 			.collect(Collectors.joining("\n"));
 
 		return PROMPT_TEMPLATE.formatted(
 			urgentCondition,
 			ingredientLines.isEmpty() ? "- 사용 가능한 재료 없음" : ingredientLines).strip();
+	}
+
+	private String clean(String value, Pattern lineBreak) {
+		return value == null ? "" : lineBreak.matcher(value).replaceAll(" ").strip();
 	}
 
 }

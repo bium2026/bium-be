@@ -2,15 +2,15 @@ package com.bium.domain.recipe.recommendation;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
+
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
 
 /**
  * AI 후보 중 냉장고 재료로 만들 수 있는 평범한 집밥만 남기고, 서로 다른 레시피 4개를 고른다.
@@ -28,7 +28,7 @@ public class RecipeCandidateSelector {
 	private static final int MAX_TIPS = 3;
 
 	/**
-	 * availableIngredients는 유통기한이 남은 재료이며, 유통기한이 가까운 순서여야 한다.
+	 * availableIngredients는 유통기한이 남은 재료다.
 	 */
 	public List<RecommendedRecipe> select(List<RecipeCandidate> candidates,
 		List<RecommendationIngredient> availableIngredients) {
@@ -41,7 +41,7 @@ public class RecipeCandidateSelector {
 
 		List<RecommendedRecipe> recipes = new ArrayList<>();
 		for (int index = 0; index < allowedCandidates.size(); index++) {
-			RecommendedRecipe recipe = normalize(allowedCandidates.get(index), index, matcher, availableIngredients);
+			RecommendedRecipe recipe = normalize(allowedCandidates.get(index), index, matcher);
 			if (!recipe.steps().isEmpty() && isPracticalRecipe(recipe, matcher)) {
 				recipes.add(recipe);
 			}
@@ -54,8 +54,7 @@ public class RecipeCandidateSelector {
 			.anyMatch(ingredient -> ingredient.required() && !matcher.isAllowed(ingredient.name()));
 	}
 
-	private RecommendedRecipe normalize(RecipeCandidate candidate, int index, IngredientMatcher matcher,
-		List<RecommendationIngredient> availableIngredients) {
+	private RecommendedRecipe normalize(RecipeCandidate candidate, int index, IngredientMatcher matcher) {
 		List<RecommendedRecipe.Ingredient> ingredients = candidate.ingredients().stream()
 			.filter(ingredient -> matcher.isAllowed(ingredient.name()))
 			.map(ingredient -> new RecommendedRecipe.Ingredient(
@@ -82,7 +81,7 @@ public class RecipeCandidateSelector {
 		return new RecommendedRecipe(
 			textOrDefault(candidate.name(), "AI 추천 레시피 " + (index + 1), 100),
 			textOrDefault(candidate.emoji(), "🍽️", 16),
-			textOrDefault(candidate.summary(), "냉장고 재료를 활용한 맞춤형 레시피입니다.", 500),
+			textOrDefault(candidate.summary(), "냉장고 재료를 활용한 맞춤형 레시피입니다.", 255),
 			positiveOrDefault(candidate.cookTimeMinutes(), 15),
 			candidate.difficulty() == null ? RecipeDifficulty.EASY : candidate.difficulty(),
 			positiveOrDefault(candidate.servings(), 1),
@@ -91,32 +90,9 @@ public class RecipeCandidateSelector {
 			candidate.steps().stream().limit(MAX_STEPS).map(step -> limit(step, 500)).toList(),
 			tips.isEmpty() ? List.of(DEFAULT_TIP) : tips,
 			new RecommendedRecipe.Nutrition(candidate.proteinG(), candidate.carbohydrateG(), candidate.fatG()),
-			fridgeMatches,
-			toUsedIngredients(fridgeMatches, availableIngredients));
+			fridgeMatches);
 	}
 
-	// AI가 준 재료 이름을 냉장고 재료와 연결한다. 같은 재료는 한 번만 넣는다
-	private List<RecommendationIngredient> toUsedIngredients(List<String> fridgeMatches,
-		List<RecommendationIngredient> availableIngredients) {
-		Map<Long, RecommendationIngredient> usedIngredients = new LinkedHashMap<>();
-		for (String fridgeMatch : fridgeMatches) {
-			findIngredient(fridgeMatch, availableIngredients)
-				.ifPresent(ingredient -> usedIngredients.putIfAbsent(ingredient.id(), ingredient));
-		}
-		return List.copyOf(usedIngredients.values());
-	}
-
-	// 이름이 정확히 같은 재료를 먼저 찾고, 없으면 이름이 겹치는 재료 중 유통기한이 가장 가까운 것을 고른다
-	private Optional<RecommendationIngredient> findIngredient(String name,
-		List<RecommendationIngredient> availableIngredients) {
-		String normalizedName = IngredientMatcher.normalize(name);
-		return availableIngredients.stream()
-			.filter(ingredient -> IngredientMatcher.normalize(ingredient.name()).equals(normalizedName))
-			.findFirst()
-			.or(() -> availableIngredients.stream()
-				.filter(ingredient -> IngredientMatcher.matches(name, ingredient.name()))
-				.findFirst());
-	}
 
 	private boolean isPracticalRecipe(RecommendedRecipe recipe, IngredientMatcher matcher) {
 		String recipeText = String.join(" ", Stream.of(

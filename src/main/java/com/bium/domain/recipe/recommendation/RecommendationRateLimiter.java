@@ -15,7 +15,7 @@ import com.bium.global.exception.TooManyRequestsException;
 /**
  * Gemini 사용 한도를 지키기 위해 분당 추천 요청 수를 제한한다.
  * 클라이언트별 한도와 서버 전체 한도를 함께 본다.
- * 로그인 기능이 생기기 전까지 IP를 클라이언트 기준으로 쓰며, 서버 한 대의 메모리에만 기록한다.
+ * 로그인 사용자 id를 클라이언트 기준으로 쓰며, 서버 한 대의 메모리에만 기록한다.
  */
 @Component
 public class RecommendationRateLimiter {

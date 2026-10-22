@@ -53,6 +53,10 @@ public class FridgeItem {
 	@Column(nullable = false, length = 50)
 	private String name;
 
+	// 냉장고 화면에 보여 줄 아이콘 이모지
+	@Column(length = 16)
+	private String emoji;
+
 	@Column(nullable = false, precision = 8, scale = 2)
 	private BigDecimal quantity;
 
@@ -95,12 +99,13 @@ public class FridgeItem {
 	private LocalDateTime updatedAt;
 
 	@Builder
-	public FridgeItem(Fridge fridge, IngredientCatalog catalog, String name, BigDecimal quantity, String unit,
-		StorageType storage, SectionType section, Integer sortOrder, LocalDate purchasedAt, LocalDate expiresAt,
-		Integer purchaseCycleDays, User createdBy) {
+	public FridgeItem(Fridge fridge, IngredientCatalog catalog, String name, String emoji, BigDecimal quantity,
+		String unit, StorageType storage, SectionType section, Integer sortOrder, LocalDate purchasedAt,
+		LocalDate expiresAt, Integer purchaseCycleDays, User createdBy) {
 		this.fridge = fridge;
 		this.catalog = catalog;
 		this.name = name;
+		this.emoji = emoji;
 		this.quantity = quantity;
 		this.unit = unit;
 		this.storage = storage;

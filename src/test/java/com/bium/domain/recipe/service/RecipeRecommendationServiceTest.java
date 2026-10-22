@@ -17,10 +17,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import com.bium.domain.recipe.recommendation.IngredientSource;
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
 import com.bium.domain.recipe.recommendation.RecipeCandidateParser;
 import com.bium.domain.recipe.recommendation.RecipeCandidateSelector;
-import com.bium.domain.recipe.recommendation.RecipeDifficulty;
 import com.bium.domain.recipe.recommendation.RecipePromptBuilder;
 import com.bium.domain.recipe.recommendation.RecommendationIngredient;
 import com.bium.domain.recipe.recommendation.RecommendedRecipe;
@@ -77,7 +77,6 @@ class RecipeRecommendationServiceTest {
 		assertThat(recipe.difficulty()).isEqualTo(RecipeDifficulty.EASY);
 		assertThat(recipe.ingredients()).extracting(RecommendedRecipe.Ingredient::source)
 			.containsExactly(IngredientSource.FRIDGE, IngredientSource.FRIDGE, IngredientSource.BASIC);
-		assertThat(recipe.usedIngredients()).containsExactly(tofu, egg);
 		assertThat(recipe.nutrition()).isEqualTo(new RecommendedRecipe.Nutrition(24, 52, 14));
 	}
 

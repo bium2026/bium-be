@@ -8,6 +8,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
+
 class RecipeCandidateSelectorTest {
 
 	private static final RecommendationIngredient TOFU = ingredient(1L, "두부");
@@ -108,16 +111,6 @@ class RecipeCandidateSelectorTest {
 		assertThat(result.ingredients().get(0).amount()).isEqualTo("적당량");
 		assertThat(result.tips()).hasSize(1);
 		assertThat(result.fridgeMatches()).containsExactly("두부");
-	}
-
-	@Test
-	void AI가_준_재료_이름을_냉장고_재료와_연결한다() {
-		RecipeCandidate recipe = candidate("두부 계란 볶음", List.of(required("두부"), required("계란")),
-			List.of("계란", "두부", "두부"));
-
-		RecommendedRecipe result = selector.select(List.of(recipe), FRIDGE).get(0);
-
-		assertThat(result.usedIngredients()).containsExactly(EGG, TOFU);
 	}
 
 	private static RecommendationIngredient ingredient(Long id, String name) {

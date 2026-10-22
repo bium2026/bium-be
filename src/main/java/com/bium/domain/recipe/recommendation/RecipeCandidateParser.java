@@ -8,6 +8,8 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.bium.domain.recipe.entity.IngredientSource;
+import com.bium.domain.recipe.entity.RecipeDifficulty;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 
