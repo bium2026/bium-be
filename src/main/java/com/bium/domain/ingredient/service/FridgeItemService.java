@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bium.domain.fridge.service.FridgeAccessValidator;
+import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
 import com.bium.domain.ingredient.entity.FridgeItem;
@@ -27,6 +28,13 @@ public class FridgeItemService {
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final Clock clock;
 	private final EntityManager entityManager;
+
+	@Transactional(readOnly = true)
+	public FridgeContentsResponse getContents(Long userId, Long fridgeId) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		return FridgeContentsResponse.from(
+			fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(fridgeId));
+	}
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {
 		FridgeItem item = findAccessibleItem(userId, itemId);
