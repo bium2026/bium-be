@@ -1,17 +1,25 @@
 package com.bium.domain.ingredient.service;
 
+import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
+import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
 import com.bium.domain.ingredient.entity.FridgeItem;
+import com.bium.domain.ingredient.entity.IngredientCatalog;
+import com.bium.domain.ingredient.entity.SectionType;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
+import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
+import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 
@@ -25,15 +33,45 @@ import lombok.RequiredArgsConstructor;
 public class FridgeItemService {
 
 	private final FridgeItemRepository fridgeItemRepository;
+	private final IngredientCatalogRepository ingredientCatalogRepository;
+	private final FridgeRepository fridgeRepository;
+	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final Clock clock;
 	private final EntityManager entityManager;
+
+	// 도감 재료를 고른 보관 위치의 중앙 칸 맨 뒤에 넣는다. 수량을 받는 화면이 없어 1로 둔다
+	public FridgeItemResponse create(Long userId, Long fridgeId, FridgeItemCreateRequest request) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		// 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
+		IngredientCatalog catalog = ingredientCatalogRepository.findByIdAndOwnerId(request.catalogId(), userId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
+
+		LocalDate today = LocalDate.now(clock);
+		Integer lastSortOrder = fridgeItemRepository.findMaxSortOrder(fridgeId, request.storage(), SectionType.CENTER);
+		FridgeItem item = FridgeItem.builder()
+			.fridge(fridgeRepository.getReferenceById(fridgeId))
+			.catalog(catalog)
+			.name(request.name().strip())
+			.emoji(blankToNull(request.emoji()))
+			.quantity(BigDecimal.ONE)
+			.storage(request.storage())
+			.section(SectionType.CENTER)
+			.sortOrder(lastSortOrder == null ? 0 : lastSortOrder + 1)
+			.purchasedAt(today)
+			.expiresAt(catalog.calculateExpiresAt(today))
+			.purchaseCycleDays(catalog.getPurchaseCycleDays())
+			.createdBy(userRepository.getReferenceById(userId))
+			.build();
+		fridgeItemRepository.save(item);
+		return FridgeItemResponse.from(item);
 
 	@Transactional(readOnly = true)
 	public FridgeContentsResponse getContents(Long userId, Long fridgeId) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
 		return FridgeContentsResponse.from(
 			fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(fridgeId));
+
 	}
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {

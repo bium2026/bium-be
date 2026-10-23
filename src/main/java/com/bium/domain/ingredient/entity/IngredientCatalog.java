@@ -1,5 +1,7 @@
 package com.bium.domain.ingredient.entity;
 
+import java.time.LocalDate;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -78,6 +80,11 @@ public class IngredientCatalog {
 		this.shelfLifeDays = shelfLifeDays;
 		this.purchaseCycleDays = purchaseCycleDays;
 		this.defaultUnit = defaultUnit;
+	}
+
+	// 장 본 날부터 기본 유통기한만큼 더한 날을 유통기한으로 삼는다
+	public LocalDate calculateExpiresAt(LocalDate purchasedAt) {
+		return shelfLifeDays == null ? null : purchasedAt.plusDays(shelfLifeDays);
 	}
 
 }
