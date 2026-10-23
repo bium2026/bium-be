@@ -14,6 +14,9 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 
 	List<FridgeItem> findAllByFridgeIdAndDeletedAtIsNull(Long fridgeId);
 
+	// 칸 안에서 보여 줄 순서대로 가져온다. 순서가 같으면 먼저 넣은 재료가 앞에 온다
+	List<FridgeItem> findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(Long fridgeId);
+
 	Optional<FridgeItem> findByIdAndDeletedAtIsNull(Long id);
 
 	// 칸에 재료가 없으면 null

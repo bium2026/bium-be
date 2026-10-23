@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
+import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
 import com.bium.domain.ingredient.entity.FridgeItem;
@@ -64,6 +65,13 @@ public class FridgeItemService {
 			.build();
 		fridgeItemRepository.save(item);
 		return FridgeItemResponse.from(item);
+
+	@Transactional(readOnly = true)
+	public FridgeContentsResponse getContents(Long userId, Long fridgeId) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		return FridgeContentsResponse.from(
+			fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(fridgeId));
+
 	}
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {
