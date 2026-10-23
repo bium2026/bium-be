@@ -109,6 +109,7 @@ Table purchased_items {   // 장본 음식 (냉장고에 넣기 전 단계)
   user_id         bigint [ref: > users.id, not null, note: '장 본 사람']
   catalog_id      bigint [ref: > ingredient_catalog.id, null]
   name            varchar(50) [not null]
+  emoji           varchar(16) [note: '장본 음식 패널 아이콘. 냉장고로 옮길 때 복사']
   quantity        decimal(8,2)
   unit            varchar(10)
   storage         storage_type [note: '도감 기본값으로 채움']

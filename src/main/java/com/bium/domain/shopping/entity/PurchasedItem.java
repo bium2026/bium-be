@@ -60,6 +60,10 @@ public class PurchasedItem {
 	@Column(nullable = false, length = 50)
 	private String name;
 
+	// 장본 음식 패널에 보여 줄 아이콘 이모지. 냉장고로 옮길 때 그대로 복사한다
+	@Column(length = 16)
+	private String emoji;
+
 	@Column(precision = 8, scale = 2)
 	private BigDecimal quantity;
 
@@ -89,12 +93,14 @@ public class PurchasedItem {
 	private LocalDateTime createdAt;
 
 	@Builder
-	public PurchasedItem(Fridge fridge, User user, IngredientCatalog catalog, String name, BigDecimal quantity,
-		String unit, StorageType storage, LocalDate purchasedAt, LocalDate expiresAt, PurchaseSource source) {
+	public PurchasedItem(Fridge fridge, User user, IngredientCatalog catalog, String name, String emoji,
+		BigDecimal quantity, String unit, StorageType storage, LocalDate purchasedAt, LocalDate expiresAt,
+		PurchaseSource source) {
 		this.fridge = fridge;
 		this.user = user;
 		this.catalog = catalog;
 		this.name = name;
+		this.emoji = emoji;
 		this.quantity = quantity;
 		this.unit = unit;
 		this.storage = storage;
