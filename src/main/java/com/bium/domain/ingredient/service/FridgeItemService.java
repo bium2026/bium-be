@@ -14,6 +14,8 @@ import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -24,10 +26,13 @@ public class FridgeItemService {
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final Clock clock;
+	private final EntityManager entityManager;
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {
 		FridgeItem item = findAccessibleItem(userId, itemId);
 		validateVersion(item, request.version());
+		// 바뀐 값이 없어 UPDATE가 안 나가도 저장할 때 버전을 한 번 더 확인한다
+		entityManager.lock(item, LockModeType.OPTIMISTIC);
 		item.update(request.name().strip(), blankToNull(request.emoji()), request.expiresAt());
 		// 올라간 버전을 응답에 담으려고 바로 저장한다
 		fridgeItemRepository.flush();
