@@ -65,13 +65,13 @@ public class FridgeItemService {
 			.build();
 		fridgeItemRepository.save(item);
 		return FridgeItemResponse.from(item);
+	}
 
 	@Transactional(readOnly = true)
 	public FridgeContentsResponse getContents(Long userId, Long fridgeId) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
 		return FridgeContentsResponse.from(
 			fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(fridgeId));
-
 	}
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {

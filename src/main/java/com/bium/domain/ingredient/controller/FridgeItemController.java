@@ -35,7 +35,8 @@ public class FridgeItemController {
 		@PathVariable Long fridgeId, @Valid @RequestBody FridgeItemCreateRequest request) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
 			fridgeItemService.create(Long.valueOf(jwt.getSubject()), fridgeId, request)));
-    
+	}
+
 	@GetMapping("/api/fridges/{fridgeId}/items")
 	public ResponseEntity<ApiResponse<FridgeContentsResponse>> getContents(@AuthenticationPrincipal Jwt jwt,
 		@PathVariable Long fridgeId) {
