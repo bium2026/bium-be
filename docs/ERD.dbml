@@ -5,8 +5,9 @@ Enum storage_type {
 }
 
 Enum section_type {
-  DOOR     [note: '문칸']
-  CENTER   [note: '중앙 칸']
+  CENTER      [note: '중앙 칸(선반)']
+  LEFT_DOOR   [note: '왼쪽 문칸']
+  RIGHT_DOOR  [note: '오른쪽 문칸']
 }
 
 Enum member_role {
