@@ -1,5 +1,8 @@
 package com.bium.domain.ingredient.entity;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.bium.domain.user.entity.User;
 
 import jakarta.persistence.Column;
@@ -42,8 +45,15 @@ public class IngredientCatalog {
 	@Column(nullable = false, length = 50)
 	private String name;
 
+	// 도감 화면에 보여 줄 아이콘 이모지
+	@Column(length = 16)
+	private String emoji;
+
+	// ERD대로 varchar(30)에 저장한다. @Enumerated만 두면 MySQL enum 컬럼으로 만들어진다
+	@Enumerated(EnumType.STRING)
+	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(length = 30)
-	private String category;
+	private IngredientCategory category;
 
 	@Enumerated(EnumType.STRING)
 	private StorageType defaultStorage;
@@ -58,10 +68,11 @@ public class IngredientCatalog {
 	private String defaultUnit;
 
 	@Builder
-	public IngredientCatalog(User owner, String name, String category, StorageType defaultStorage,
-		Integer shelfLifeDays, Integer purchaseCycleDays, String defaultUnit) {
+	public IngredientCatalog(User owner, String name, String emoji, IngredientCategory category,
+		StorageType defaultStorage, Integer shelfLifeDays, Integer purchaseCycleDays, String defaultUnit) {
 		this.owner = owner;
 		this.name = name;
+		this.emoji = emoji;
 		this.category = category;
 		this.defaultStorage = defaultStorage;
 		this.shelfLifeDays = shelfLifeDays;

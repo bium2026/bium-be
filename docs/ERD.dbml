@@ -57,7 +57,8 @@ Table ingredient_catalog {
   owner_id            bigint [ref: > users.id, null, note: 'NULL=공용 도감, 값=사용자 커스텀']
   owner_key           bigint [not null, note: '생성 컬럼: GENERATED ALWAYS AS (IFNULL(owner_id, 0)) (VIRTUAL). 공용 도감 이름 중복을 막기 위한 unique 전용']
   name                varchar(50) [not null]
-  category            varchar(30)
+  emoji               varchar(16) [note: '도감 화면 아이콘']
+  category            varchar(30) [note: 'VEGETABLE / MEAT / DAIRY / FRUIT / ETC']
   default_storage     storage_type
   shelf_life_days     int  [note: '기본 유통기한(일)']
   purchase_cycle_days int  [note: '기본 구매 주기(일)']
