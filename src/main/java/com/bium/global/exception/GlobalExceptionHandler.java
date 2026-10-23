@@ -1,5 +1,6 @@
 package com.bium.global.exception;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -26,6 +27,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.status(errorCode.getStatus())
 			.header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
 			.body(ApiResponse.error(errorCode));
+	}
+
+	// 같은 데이터를 두 사람이 동시에 고치면 나중에 저장한 쪽을 막는다 (@Version)
+	@ExceptionHandler(OptimisticLockingFailureException.class)
+	public ResponseEntity<ApiResponse<Void>> handleOptimisticLockingFailureException(
+		OptimisticLockingFailureException e) {
+		ErrorCode errorCode = ErrorCode.CONCURRENT_MODIFICATION;
+		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
 	}
 
 	@ExceptionHandler(BusinessException.class)

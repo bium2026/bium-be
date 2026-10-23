@@ -117,4 +117,19 @@ public class FridgeItem {
 		this.createdBy = createdBy;
 	}
 
+	// 재료 수정 모달에서 고칠 수 있는 값만 바꾼다
+	public void update(String name, String emoji, LocalDate expiresAt) {
+		this.name = name;
+		this.emoji = emoji;
+		this.expiresAt = expiresAt;
+	}
+
+	public void delete(LocalDateTime deletedAt) {
+		this.deletedAt = deletedAt;
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
+	}
+
 }
