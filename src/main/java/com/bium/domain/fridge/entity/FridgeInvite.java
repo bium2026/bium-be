@@ -54,4 +54,14 @@ public class FridgeInvite {
 		this.expiresAt = expiresAt;
 	}
 
+	// 만료 시각이 없으면 소유자가 새 코드로 바꿀 때까지 쓸 수 있다
+	public boolean isUsable(LocalDateTime now) {
+		return isActive && (expiresAt == null || expiresAt.isAfter(now));
+	}
+
+	// 새 코드를 만들면 전에 쓰던 코드는 더 받지 않는다
+	public void deactivate() {
+		this.isActive = false;
+	}
+
 }
