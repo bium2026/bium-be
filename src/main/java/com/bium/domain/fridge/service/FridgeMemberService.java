@@ -1,0 +1,64 @@
+package com.bium.domain.fridge.service;
+
+import java.util.Comparator;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.bium.domain.fridge.dto.FridgeMemberResponse;
+import com.bium.domain.fridge.entity.FridgeInvite;
+import com.bium.domain.fridge.entity.FridgeMember;
+import com.bium.domain.fridge.entity.MemberRole;
+import com.bium.domain.fridge.repository.FridgeInviteRepository;
+import com.bium.domain.fridge.repository.FridgeMemberRepository;
+import com.bium.global.exception.BusinessException;
+import com.bium.global.exception.ErrorCode;
+
+import lombok.RequiredArgsConstructor;
+
+/**
+ * 냉장고를 함께 쓰는 멤버를 보여 주고, 내보내거나 스스로 나가게 한다.
+ * 소유자가 빠지면 초대와 내보내기를 할 사람이 없어지므로 소유자는 나가거나 내보내질 수 없다.
+ */
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class FridgeMemberService {
+
+	private final FridgeMemberRepository fridgeMemberRepository;
+	private final FridgeInviteRepository fridgeInviteRepository;
+	private final FridgeAccessValidator fridgeAccessValidator;
+
+	// 소유자를 맨 앞에 두고 나머지는 참여한 순서로 보여 준다
+	@Transactional(readOnly = true)
+	public List<FridgeMemberResponse> getMembers(Long userId, Long fridgeId) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		return fridgeMemberRepository.findAllWithUserByFridgeId(fridgeId).stream()
+			.sorted(Comparator.comparing(member -> member.getRole() != MemberRole.OWNER))
+			.map(member -> FridgeMemberResponse.of(member, userId))
+			.toList();
+	}
+
+	public void remove(Long userId, Long fridgeId, Long targetUserId) {
+		fridgeAccessValidator.validateOwner(fridgeId, userId);
+		if (userId.equals(targetUserId)) {
+			throw new BusinessException(ErrorCode.OWNER_CANNOT_LEAVE);
+		}
+		FridgeMember target = fridgeMemberRepository.findByFridgeIdAndUserId(fridgeId, targetUserId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_MEMBER_NOT_FOUND));
+		fridgeMemberRepository.delete(target);
+		// 내보낸 사람이 아직 쓸 수 있는 코드로 바로 다시 들어오지 못하게 지금 코드도 막는다
+		fridgeInviteRepository.findAllActiveByFridgeId(fridgeId).forEach(FridgeInvite::deactivate);
+	}
+
+	public void leave(Long userId, Long fridgeId) {
+		FridgeMember me = fridgeMemberRepository.findByFridgeIdAndUserId(fridgeId, userId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		if (me.getRole() == MemberRole.OWNER) {
+			throw new BusinessException(ErrorCode.OWNER_CANNOT_LEAVE);
+		}
+		fridgeMemberRepository.delete(me);
+	}
+
+}
