@@ -17,6 +17,7 @@ public enum ErrorCode {
 	FRIDGE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "재료를 찾을 수 없습니다."),
 	CATALOG_NOT_FOUND(HttpStatus.NOT_FOUND, "도감에서 재료를 찾을 수 없습니다."),
 	DUPLICATE_CATALOG_NAME(HttpStatus.CONFLICT, "이미 도감에 있는 재료입니다."),
+	PURCHASED_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장본 음식을 찾을 수 없습니다."),
 	CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "다른 멤버가 먼저 수정했습니다. 새로고침한 뒤 다시 시도해 주세요."),
 	RECIPE_NOT_FOUND(HttpStatus.NOT_FOUND, "레시피를 찾을 수 없습니다."),
 	NO_USABLE_INGREDIENT(HttpStatus.UNPROCESSABLE_CONTENT, "유통기한이 남아 있는 재료가 없어 추천할 수 없습니다."),
