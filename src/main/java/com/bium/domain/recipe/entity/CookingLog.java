@@ -54,4 +54,12 @@ public class CookingLog {
 		this.user = user;
 	}
 
+	public void undo(LocalDateTime undoneAt) {
+		this.undoneAt = undoneAt;
+	}
+
+	public boolean isUndone() {
+		return undoneAt != null;
+	}
+
 }
