@@ -9,6 +9,7 @@ import com.bium.domain.auth.dto.LoginRequest;
 import com.bium.domain.auth.dto.LoginResponse;
 import com.bium.domain.auth.dto.SignupRequest;
 import com.bium.domain.auth.dto.SignupResponse;
+import com.bium.domain.fridge.service.FridgeService;
 import com.bium.domain.user.entity.User;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
@@ -24,6 +25,7 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtProvider jwtProvider;
+	private final FridgeService fridgeService;
 
 	@Transactional
 	public SignupResponse signup(SignupRequest request) {
@@ -38,6 +40,8 @@ public class AuthService {
 			// 같은 아이디로 동시에 가입하면 위 확인을 둘 다 통과하고 login_id 유니크 제약에서 걸린다
 			throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
 		}
+		// 같은 트랜잭션에서 만들어, 냉장고를 만들다 실패하면 가입도 취소되고 냉장고 없는 계정이 남지 않는다
+		fridgeService.createDefaultFridge(user);
 		return new SignupResponse(user.getId());
 	}
 
