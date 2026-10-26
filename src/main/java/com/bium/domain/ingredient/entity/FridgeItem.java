@@ -132,4 +132,20 @@ public class FridgeItem {
 		return deletedAt != null;
 	}
 
+	// 요리에 쓴 재료를 모두 빼서 냉장고에서 지운다. 뺀 수량을 돌려준다
+	public BigDecimal useUp(LocalDateTime usedAt) {
+		BigDecimal used = quantity;
+		this.quantity = BigDecimal.ZERO;
+		this.deletedAt = usedAt;
+		return used;
+	}
+
+	// 요리 되돌리기. 그사이 다른 멤버가 바꾼 수량을 덮어쓰지 않도록 현재 수량에 뺀 만큼 더한다
+	public void restore(BigDecimal deductedQuantity, boolean deletedByDeduction) {
+		this.quantity = quantity.add(deductedQuantity);
+		if (deletedByDeduction) {
+			this.deletedAt = null;
+		}
+	}
+
 }
