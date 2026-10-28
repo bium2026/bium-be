@@ -30,6 +30,7 @@ public enum ErrorCode {
 	COOKING_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "요리 기록을 찾을 수 없습니다."),
 	ALREADY_UNDONE(HttpStatus.CONFLICT, "이미 되돌린 요리입니다."),
 	NO_USABLE_INGREDIENT(HttpStatus.UNPROCESSABLE_CONTENT, "유통기한이 남아 있는 재료가 없어 추천할 수 없습니다."),
+	DISH_NOT_RECOGNIZED(HttpStatus.UNPROCESSABLE_CONTENT, "어떤 음식인지 알 수 없습니다. 음식 이름을 다시 입력해 주세요."),
 	TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
 	AI_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "레시피 추천에 실패했습니다. 잠시 후 다시 시도해 주세요."),
 	RECIPE_NO_RESULT(HttpStatus.BAD_GATEWAY, "추천할 수 있는 레시피를 받지 못했습니다. 다시 시도해 주세요."),

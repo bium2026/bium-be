@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -41,7 +42,8 @@ public class RecipeCandidateSelector {
 
 		List<RecommendedRecipe> recipes = new ArrayList<>();
 		for (int index = 0; index < allowedCandidates.size(); index++) {
-			RecommendedRecipe recipe = normalize(allowedCandidates.get(index), index, matcher);
+			RecommendedRecipe recipe = normalize(allowedCandidates.get(index), "AI 추천 레시피 " + (index + 1), matcher,
+				false);
 			if (!recipe.steps().isEmpty() && isPracticalRecipe(recipe, matcher)) {
 				recipes.add(recipe);
 			}
@@ -49,18 +51,35 @@ public class RecipeCandidateSelector {
 		return selectDiverseRecipes(recipes);
 	}
 
+	/**
+	 * 만들고 싶은 음식의 후보 중 조리 단계와 재료가 있는 첫 레시피를 고른다.
+	 * 사용자가 고른 음식이라 냉장고 재료를 쓰는지나 메뉴가 평범한지는 따지지 않고, 냉장고에 없는 재료는 MISSING으로 남긴다.
+	 */
+	public Optional<RecommendedRecipe> selectTarget(List<RecipeCandidate> candidates,
+		List<RecommendationIngredient> availableIngredients, String dishName) {
+		IngredientMatcher matcher = new IngredientMatcher(
+			availableIngredients.stream().map(RecommendationIngredient::name).toList());
+		return candidates.stream()
+			.map(candidate -> normalize(candidate, dishName, matcher, true))
+			.filter(recipe -> !recipe.steps().isEmpty() && !recipe.ingredients().isEmpty())
+			.findFirst();
+	}
+
 	private boolean hasUnavailableRequiredIngredient(RecipeCandidate candidate, IngredientMatcher matcher) {
 		return candidate.ingredients().stream()
 			.anyMatch(ingredient -> ingredient.required() && !matcher.isAllowed(ingredient.name()));
 	}
 
-	private RecommendedRecipe normalize(RecipeCandidate candidate, int index, IngredientMatcher matcher) {
+	// keepMissing이 false면 냉장고 재료와 기본 양념만 남긴다
+	private RecommendedRecipe normalize(RecipeCandidate candidate, String defaultName, IngredientMatcher matcher,
+		boolean keepMissing) {
 		List<RecommendedRecipe.Ingredient> ingredients = candidate.ingredients().stream()
-			.filter(ingredient -> matcher.isAllowed(ingredient.name()))
+			.filter(ingredient -> keepMissing ? !IngredientMatcher.normalize(ingredient.name()).isEmpty()
+				: matcher.isAllowed(ingredient.name()))
 			.map(ingredient -> new RecommendedRecipe.Ingredient(
 				limit(ingredient.name(), 50),
 				textOrDefault(ingredient.amount(), "적당량", 50),
-				matcher.isAvailable(ingredient.name()) ? IngredientSource.FRIDGE : IngredientSource.BASIC,
+				sourceOf(ingredient.name(), matcher),
 				ingredient.required()))
 			.toList();
 
@@ -79,7 +98,7 @@ public class RecipeCandidateSelector {
 		List<String> tips = candidate.tips().stream().limit(MAX_TIPS).map(tip -> limit(tip, 500)).toList();
 
 		return new RecommendedRecipe(
-			textOrDefault(candidate.name(), "AI 추천 레시피 " + (index + 1), 100),
+			textOrDefault(candidate.name(), defaultName, 100),
 			textOrDefault(candidate.emoji(), "🍽️", 16),
 			textOrDefault(candidate.summary(), "냉장고 재료를 활용한 맞춤형 레시피입니다.", 255),
 			positiveOrDefault(candidate.cookTimeMinutes(), 15),
@@ -93,6 +112,13 @@ public class RecipeCandidateSelector {
 			fridgeMatches);
 	}
 
+
+	private IngredientSource sourceOf(String name, IngredientMatcher matcher) {
+		if (matcher.isAvailable(name)) {
+			return IngredientSource.FRIDGE;
+		}
+		return matcher.isBasic(name) ? IngredientSource.BASIC : IngredientSource.MISSING;
+	}
 
 	private boolean isPracticalRecipe(RecommendedRecipe recipe, IngredientMatcher matcher) {
 		String recipeText = String.join(" ", Stream.of(
