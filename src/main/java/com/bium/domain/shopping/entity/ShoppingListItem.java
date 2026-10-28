@@ -80,4 +80,9 @@ public class ShoppingListItem {
 		this.unit = unit;
 	}
 
+	// 뒤집지 않고 보낸 값으로 바꿔서 같은 요청이 두 번 와도 결과가 같다
+	public void check(boolean checked) {
+		this.isChecked = checked;
+	}
+
 }
