@@ -85,11 +85,14 @@ public class PurchasedItemService {
 
 	// 끌어다 놓은 냉장고 칸의 원하는 위치에 같은 이름·아이콘·유통기한으로 재료를 만든다
 	public FridgeItemResponse moveToFridge(Long userId, Long purchasedItemId, PurchasedItemMoveRequest request) {
-		// 장본 음식을 잠근 다음 냉장고를 잠가야, 그 뒤 칸 재료를 읽을 때 앞선 요청이 바꾼 순번까지 본다
+		// 냉장고 재료를 옮기는 요청과 같은 순서(냉장고 → 장본 음식 → 칸의 재료)로 잠가야 교착 상태가 생기지 않는다.
+		// 잠그며 다시 읽어 그사이 다른 멤버가 먼저 옮겼는지 확인한다
+		Long fridgeId = purchasedItemRepository.findFridgeIdById(purchasedItemId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND));
+		Fridge fridge = fridgeRepository.findByIdForUpdate(fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 		PurchasedItem purchasedItem = purchasedItemRepository.findByIdForUpdate(purchasedItemId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND));
-		Fridge fridge = fridgeRepository.findByIdForUpdate(purchasedItem.getFridge().getId())
-			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 		// 다른 냉장고의 장본 음식은 있는지도 알 수 없게 없는 장본 음식과 같은 오류를 준다
 		if (!fridgeAccessValidator.isMember(fridge.getId(), userId)) {
 			throw new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND);
