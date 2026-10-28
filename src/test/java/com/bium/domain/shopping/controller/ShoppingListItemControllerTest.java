@@ -172,6 +172,10 @@ class ShoppingListItemControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"))
 			.andExpect(jsonPath("$.error.message").value("재료 이름은 50자까지 쓸 수 있습니다."));
+		// 앞뒤의 줄바꿈·탭도 지우지 않고 막는다
+		add(memberToken, "{\"name\": \"\\n두부\\t\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료 이름에 줄바꿈이나 제어 문자를 쓸 수 없습니다."));
 		add(memberToken, "{\"name\": \"두부\\n우유\"}")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.message").value("재료 이름에 줄바꿈이나 제어 문자를 쓸 수 없습니다."));
