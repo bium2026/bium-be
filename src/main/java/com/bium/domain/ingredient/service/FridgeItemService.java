@@ -12,6 +12,8 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.activity.entity.ActivityAction;
+import com.bium.domain.activity.service.ActivityLogService;
 import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
@@ -46,6 +48,7 @@ public class FridgeItemService {
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final ActivityLogService activityLogService;
 	private final Clock clock;
 	private final EntityManager entityManager;
 
@@ -73,6 +76,7 @@ public class FridgeItemService {
 			.createdBy(userRepository.getReferenceById(userId))
 			.build();
 		fridgeItemRepository.save(item);
+		activityLogService.recordItem(userId, item, ActivityAction.ADD);
 		return FridgeItemResponse.from(item);
 	}
 
@@ -123,6 +127,10 @@ public class FridgeItemService {
 		item.update(request.name().strip(), blankToNull(request.emoji()), request.expiresAt());
 		// 올라간 버전을 응답에 담으려고 바로 저장한다
 		fridgeItemRepository.flush();
+		// 바꾼 값 없이 저장만 누르면 버전이 그대로이므로 활동 기록에 쌓지 않는다
+		if (!item.getVersion().equals(request.version())) {
+			activityLogService.recordItem(userId, item, ActivityAction.UPDATE);
+		}
 		return FridgeItemResponse.from(item);
 	}
 
@@ -131,6 +139,10 @@ public class FridgeItemService {
 		FridgeItem item = findAccessibleItem(userId, itemId);
 		validateVersion(item, version);
 		item.delete(LocalDateTime.now(clock));
+		// 활동 기록이 재료 행을 참조해서, 기록을 먼저 넣으면 MySQL에서 동시에 지우는 두 요청이 서로 기다리다 막힌다.
+		// 삭제를 먼저 저장해 재료 행을 잡아 두면 늦은 요청은 버전 충돌(409)로 끝난다
+		fridgeItemRepository.flush();
+		activityLogService.recordItem(userId, item, ActivityAction.DELETE);
 	}
 
 	// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다

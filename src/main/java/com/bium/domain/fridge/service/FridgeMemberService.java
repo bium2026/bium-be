@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.activity.entity.ActivityAction;
+import com.bium.domain.activity.service.ActivityLogService;
 import com.bium.domain.fridge.dto.FridgeMemberResponse;
 import com.bium.domain.fridge.entity.FridgeInvite;
 import com.bium.domain.fridge.entity.FridgeMember;
@@ -29,6 +31,7 @@ public class FridgeMemberService {
 	private final FridgeMemberRepository fridgeMemberRepository;
 	private final FridgeInviteRepository fridgeInviteRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final ActivityLogService activityLogService;
 
 	// 소유자를 맨 앞에 두고 나머지는 참여한 순서로 보여 준다
 	@Transactional(readOnly = true)
@@ -48,6 +51,9 @@ public class FridgeMemberService {
 		FridgeMember target = fridgeMemberRepository.findByFridgeIdAndUserId(fridgeId, targetUserId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_MEMBER_NOT_FOUND));
 		fridgeMemberRepository.delete(target);
+		// 기록에는 행동한 사람이 하나만 들어가므로 내보내진 사람이 나간 것으로 남긴다.
+		// 초대 코드 만들기처럼 냉장고 행을 먼저 잡고 초대 코드를 잠가야 둘이 동시에 와도 서로 막히지 않아서 기록을 먼저 넣는다
+		activityLogService.recordMember(targetUserId, fridgeId, ActivityAction.LEAVE);
 		// 내보낸 사람이 아직 쓸 수 있는 코드로 바로 다시 들어오지 못하게 지금 코드도 막는다
 		fridgeInviteRepository.findAllActiveByFridgeIdForUpdate(fridgeId).forEach(FridgeInvite::deactivate);
 	}
@@ -59,6 +65,7 @@ public class FridgeMemberService {
 			throw new BusinessException(ErrorCode.OWNER_CANNOT_LEAVE);
 		}
 		fridgeMemberRepository.delete(me);
+		activityLogService.recordMember(userId, fridgeId, ActivityAction.LEAVE);
 	}
 
 }

@@ -12,6 +12,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.activity.entity.ActivityAction;
+import com.bium.domain.activity.service.ActivityLogService;
 import com.bium.domain.fridge.dto.FridgeInviteResponse;
 import com.bium.domain.fridge.dto.FridgeJoinRequest;
 import com.bium.domain.fridge.dto.FridgeResponse;
@@ -48,6 +50,7 @@ public class FridgeInviteService {
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final ActivityLogService activityLogService;
 	private final Clock clock;
 	private final SecureRandom random = new SecureRandom();
 
@@ -97,6 +100,7 @@ public class FridgeInviteService {
 			// 참여 버튼을 두 번 눌러 동시에 들어온 요청은 (냉장고, 사용자) unique 제약에 걸린다
 			throw new BusinessException(ErrorCode.ALREADY_FRIDGE_MEMBER, e);
 		}
+		activityLogService.recordMember(userId, invite.getFridge().getId(), ActivityAction.JOIN);
 		return FridgeResponse.from(member);
 	}
 

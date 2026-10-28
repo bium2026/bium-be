@@ -1,5 +1,6 @@
 package com.bium.domain.ingredient.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
@@ -93,11 +94,19 @@ class FridgeItemConcurrentUpdateTest {
 			otherMember.executeWithoutResult(otherStatus -> fridgeItemRepository.findById(itemId).orElseThrow()
 				.update("다른 사람이 고친 두부", null, null));
 		})).isInstanceOf(OptimisticLockingFailureException.class);
+
+		// 수정과 같은 트랜잭션에서 남긴 활동 기록도 함께 되돌려진다
+		Long logCount = transactionTemplate.execute(status -> em.createQuery(
+				"select count(a) from ActivityLog a where a.fridge.id = :id", Long.class)
+			.setParameter("id", fridgeId)
+			.getSingleResult());
+		assertThat(logCount).isZero();
 	}
 
 	@AfterEach
 	void tearDown() {
 		transactionTemplate.executeWithoutResult(status -> {
+			em.createQuery("delete from ActivityLog where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from FridgeItem where id = :id").setParameter("id", itemId).executeUpdate();
 			em.createQuery("delete from FridgeMember where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from Fridge where id = :id").setParameter("id", fridgeId).executeUpdate();
