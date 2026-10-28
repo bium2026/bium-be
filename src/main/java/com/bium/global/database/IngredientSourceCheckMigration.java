@@ -53,12 +53,20 @@ public class IngredientSourceCheckMigration implements ApplicationRunner {
 			if (outdated.isEmpty()) {
 				return;
 			}
-			// MySQL은 8.0.16부터 CHECK 제약을 지키고 그때부터 drop check를 쓸 수 있다
-			String drop = isMySql() ? "drop check" : "drop constraint";
-			outdated.forEach(name -> jdbcTemplate.execute(
-				"alter table recipe_ingredients " + drop + " `" + name.replace("`", "``") + "`"));
-			jdbcTemplate.execute("alter table recipe_ingredients add constraint " + CONSTRAINT_NAME
-				+ " check (source in (" + quotedValues() + "))");
+			String add = "add constraint " + CONSTRAINT_NAME + " check (source in (" + quotedValues() + "))";
+			if (isMySql()) {
+				// 지우기와 만들기를 한 문장으로 해서, 만들기가 실패하면 지운 제약도 그대로 남게 한다.
+				// MySQL은 8.0.16부터 CHECK 제약을 지키고 그때부터 drop check를 쓸 수 있다
+				String drops = outdated.stream()
+					.map(name -> "drop check " + quoteName(name))
+					.collect(Collectors.joining(", "));
+				jdbcTemplate.execute("alter table recipe_ingredients " + drops + ", " + add);
+			} else {
+				// 테스트용 H2는 alter table 한 문장에 여러 작업을 쓸 수 없어 나눠서 한다
+				outdated.forEach(name ->
+					jdbcTemplate.execute("alter table recipe_ingredients drop constraint " + quoteName(name)));
+				jdbcTemplate.execute("alter table recipe_ingredients " + add);
+			}
 			log.info("recipe_ingredients.source CHECK 제약을 지금 값으로 다시 만들었습니다. 지운 제약={}", outdated);
 		} catch (DataAccessException exception) {
 			// 제약을 못 고쳐도 다른 기능은 써야 하므로 서버는 켜고, 손으로 고칠 수 있게 남긴다
@@ -70,6 +78,10 @@ public class IngredientSourceCheckMigration implements ApplicationRunner {
 	private boolean isMySql() {
 		return "MySQL".equalsIgnoreCase(jdbcTemplate.execute(
 			(ConnectionCallback<String>)connection -> connection.getMetaData().getDatabaseProductName()));
+	}
+
+	private static String quoteName(String name) {
+		return "`" + name.replace("`", "``") + "`";
 	}
 
 	private static String quotedValues() {
