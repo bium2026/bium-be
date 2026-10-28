@@ -57,13 +57,12 @@ public class RecipeRecommendationService {
 		LocalDate today = LocalDate.now(clock);
 		List<RecommendationIngredient> usableIngredients = usableIngredients(ingredients, today);
 
-		String prompt = promptBuilder.buildTarget(dishName, usableIngredients, today);
-		List<RecipeCandidate> candidates = candidateParser.parse(geminiClient.generateJson(prompt));
-		// 음식 이름이 아니면 빈 목록을 달라고 했으므로, 후보가 없으면 다시 시도해도 같은 결과로 본다
-		if (candidates.isEmpty()) {
+		String response = geminiClient.generateJson(promptBuilder.buildTarget(dishName, usableIngredients, today));
+		// 음식 이름이 아니면 빈 배열을 달라고 했으므로, 빈 배열이면 다시 시도해도 같은 결과로 본다
+		if (candidateParser.hasNoRecipes(response)) {
 			throw new BusinessException(ErrorCode.DISH_NOT_RECOGNIZED);
 		}
-		return candidateSelector.selectTarget(candidates, usableIngredients, dishName)
+		return candidateSelector.selectTarget(candidateParser.parse(response), usableIngredients, dishName)
 			.orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NO_RESULT));
 	}
 

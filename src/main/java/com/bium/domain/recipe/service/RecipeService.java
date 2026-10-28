@@ -74,7 +74,7 @@ public class RecipeService {
 		List<RecommendationIngredient> ingredients = findIngredients(fridgeId);
 		rateLimiter.check(String.valueOf(userId));
 
-		RecommendedRecipe recommendedRecipe = recommendationService.recommendTarget(dishName.strip(), ingredients);
+		RecommendedRecipe recommendedRecipe = recommendationService.recommendTarget(dishName, ingredients);
 
 		return transactionTemplate.execute(status -> save(userId, fridgeId, recommendedRecipe, RecipeType.TARGET));
 	}
