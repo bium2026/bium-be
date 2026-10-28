@@ -108,6 +108,16 @@ class FridgeItemPositionControllerTest {
 	}
 
 	@Test
+	void 다른_칸으로_옮기면_원래_칸의_남은_재료도_0부터_다시_매긴다() throws Exception {
+		changePosition(tofu, memberToken, "FREEZER", "CENTER", 0, 0)
+			.andExpect(status().isOk());
+
+		assertThat(reload(milk).getSortOrder()).isZero();
+		assertThat(reload(egg).getSortOrder()).isEqualTo(1);
+		assertThat(reload(milk).getVersion()).isZero();
+	}
+
+	@Test
 	void 놓을_위치가_칸의_재료_수보다_크면_맨_뒤에_놓는다() throws Exception {
 		changePosition(tofu, memberToken, "FRIDGE", "CENTER", 100, 0)
 			.andExpect(status().isOk());
