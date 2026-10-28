@@ -189,12 +189,26 @@ class ActivityLogControllerTest {
 			.andExpect(jsonPath("$.data[0].nickname").value("윤호"))
 			.andExpect(jsonPath("$.data[0].itemName").value("대파"))
 			.andExpect(jsonPath("$.data[1].action").value("RESTORE"))
+			.andExpect(jsonPath("$.data[1].nickname").value("윤호"))
 			.andExpect(jsonPath("$.data[1].itemName").value("두부"))
 			.andExpect(jsonPath("$.data[2].action").value("DEDUCT"))
 			.andExpect(jsonPath("$.data[2].nickname").value("선재"))
 			.andExpect(jsonPath("$.data[2].itemName").value("대파"))
 			.andExpect(jsonPath("$.data[3].action").value("DEDUCT"))
+			.andExpect(jsonPath("$.data[3].nickname").value("선재"))
 			.andExpect(jsonPath("$.data[3].itemName").value("두부"));
+	}
+
+	@Test
+	void 같은_재료를_두_번_보내도_차감_기록은_하나만_남긴다() throws Exception {
+		FridgeItem tofu = persistTofu();
+
+		cook(persistRecipe(), used(tofu, 0) + "," + used(tofu, 0))
+			.andExpect(status().isCreated());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data.length()").value(1))
+			.andExpect(jsonPath("$.data[0].action").value("DEDUCT"));
 	}
 
 	@Test
