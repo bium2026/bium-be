@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.activity.entity.ActivityAction;
+import com.bium.domain.activity.service.ActivityLogService;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.entity.FridgeItem;
@@ -60,6 +62,7 @@ public class CookingService {
 	private final CookingLogItemRepository cookingLogItemRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final ActivityLogService activityLogService;
 	private final Clock clock;
 
 	@Transactional(readOnly = true)
@@ -122,6 +125,9 @@ public class CookingService {
 		cookingLogItemRepository.saveAll(logItems);
 		// 그 사이 다른 멤버가 같은 재료를 고쳤으면 여기서 버전 충돌로 막는다
 		fridgeItemRepository.flush();
+		// 활동 기록이 재료 행을 참조하므로 차감을 먼저 저장해 재료 행을 잡아 둔 뒤 기록을 남긴다
+		versions.keySet().forEach(itemId ->
+			activityLogService.recordItem(userId, items.get(itemId), ActivityAction.DEDUCT));
 
 		return new CookingLogResponse(cookingLog.getId(), recipeId, List.copyOf(versions.keySet()),
 			cookingLog.getCookedAt());
@@ -135,16 +141,17 @@ public class CookingService {
 			throw new BusinessException(ErrorCode.ALREADY_UNDONE);
 		}
 
-		List<Long> restoredItemIds = new ArrayList<>();
+		List<FridgeItem> restoredItems = new ArrayList<>();
 		for (CookingLogItem logItem : cookingLogItemRepository.findAllWithFridgeItemByCookingLogId(cookingLogId)) {
 			logItem.getFridgeItem().restore(logItem.getDeductedQuantity(), logItem.isDeletedByDeduction());
-			restoredItemIds.add(logItem.getFridgeItem().getId());
+			restoredItems.add(logItem.getFridgeItem());
 		}
 		LocalDateTime now = LocalDateTime.now(clock);
 		cookingLog.undo(now);
 		fridgeItemRepository.flush();
+		restoredItems.forEach(item -> activityLogService.recordItem(userId, item, ActivityAction.RESTORE));
 
-		return new CookingUndoResponse(cookingLogId, restoredItemIds, now);
+		return new CookingUndoResponse(cookingLogId, restoredItems.stream().map(FridgeItem::getId).toList(), now);
 	}
 
 	// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
