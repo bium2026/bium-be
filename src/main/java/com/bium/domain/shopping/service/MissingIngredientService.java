@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.recipe.entity.IngredientSource;
 import com.bium.domain.recipe.entity.Recipe;
@@ -36,6 +37,7 @@ public class MissingIngredientService {
 	private final RecipeRepository recipeRepository;
 	private final RecipeIngredientRepository recipeIngredientRepository;
 	private final ShoppingListItemRepository shoppingListItemRepository;
+	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
 
@@ -57,9 +59,14 @@ public class MissingIngredientService {
 			throw new BusinessException(ErrorCode.INVALID_INPUT);
 		}
 
+		// 같은 냉장고에 동시에 담으면 둘 다 아직 안 담긴 것으로 보고 같은 재료를 두 번 담으므로 냉장고 행을 잠가 하나씩 처리한다.
+		// 안 산 항목만 잠그면 항목이 없을 때 MySQL에서 두 요청이 서로의 빈 범위 잠금을 기다리다 막혀서 냉장고를 먼저 잠근다
+		Long fridgeId = recipe.getFridge().getId();
+		fridgeRepository.findByIdForUpdate(fridgeId);
+
 		// 아직 안 산 같은 재료가 목록에 있으면 다시 담지 않는다. 이미 산 재료는 또 살 수 있어 다시 담는다
-		List<String> uncheckedNames = shoppingListItemRepository
-			.findAllByFridgeIdAndIsCheckedFalse(recipe.getFridge().getId()).stream()
+		List<String> uncheckedNames = shoppingListItemRepository.findAllForUpdateByFridgeIdAndIsCheckedFalse(fridgeId)
+			.stream()
 			.map(ShoppingListItem::getName)
 			.toList();
 		List<ShoppingListItem> items = names.stream()
