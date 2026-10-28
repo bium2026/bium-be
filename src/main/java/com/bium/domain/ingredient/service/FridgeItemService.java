@@ -54,6 +54,7 @@ public class FridgeItemService {
 
 	// 도감 재료를 고른 보관 위치의 중앙 칸 맨 뒤에 넣는다. 수량을 받는 화면이 없어 1로 둔다
 	public FridgeItemResponse create(Long userId, Long fridgeId, FridgeItemCreateRequest request) {
+		Fridge fridge = lockFridge(fridgeId);
 		fridgeAccessValidator.validateMember(fridgeId, userId);
 		// 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
 		IngredientCatalog catalog = ingredientCatalogRepository.findByIdAndOwnerId(request.catalogId(), userId)
@@ -62,7 +63,7 @@ public class FridgeItemService {
 		LocalDate today = LocalDate.now(clock);
 		Integer lastSortOrder = fridgeItemRepository.findMaxSortOrder(fridgeId, request.storage(), SectionType.CENTER);
 		FridgeItem item = FridgeItem.builder()
-			.fridge(fridgeRepository.getReferenceById(fridgeId))
+			.fridge(fridge)
 			.catalog(catalog)
 			.name(request.name().strip())
 			.emoji(blankToNull(request.emoji()))
@@ -82,10 +83,10 @@ public class FridgeItemService {
 
 	// 영수증에서 읽은 재료처럼 도감에 없는 재료를 한 번에 넣는다. 보관 위치마다 중앙 칸 맨 뒤에 보낸 순서대로 놓는다
 	public FridgeItemBulkCreateResponse createAll(Long userId, Long fridgeId, FridgeItemBulkCreateRequest request) {
+		Fridge fridge = lockFridge(fridgeId);
 		fridgeAccessValidator.validateMember(fridgeId, userId);
 
 		LocalDate today = LocalDate.now(clock);
-		Fridge fridge = fridgeRepository.getReferenceById(fridgeId);
 		User createdBy = userRepository.getReferenceById(userId);
 		Map<StorageType, Integer> nextSortOrders = new EnumMap<>(StorageType.class);
 		List<FridgeItem> items = new ArrayList<>();
@@ -143,6 +144,14 @@ public class FridgeItemService {
 		// 삭제를 먼저 저장해 재료 행을 잡아 두면 늦은 요청은 버전 충돌(409)로 끝난다
 		fridgeItemRepository.flush();
 		activityLogService.recordItem(userId, item, ActivityAction.DELETE);
+	}
+
+	// 같은 냉장고에 동시에 재료를 넣으면 같은 순번(sortOrder)을 받으므로 냉장고 행을 잠가 하나씩 처리한다.
+	// MySQL REPEATABLE READ에서 일반 조회는 트랜잭션의 첫 조회 시점 스냅샷을 읽으므로, 다른 조회보다 먼저 잠가야
+	// 앞선 요청이 커밋한 재료까지 보고 그 뒤 순번을 매긴다
+	private Fridge lockFridge(Long fridgeId) {
+		return fridgeRepository.findByIdForUpdate(fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 	}
 
 	// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
