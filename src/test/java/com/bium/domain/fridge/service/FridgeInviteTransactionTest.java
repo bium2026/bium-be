@@ -87,6 +87,7 @@ class FridgeInviteTransactionTest {
 	@AfterEach
 	void tearDown() {
 		transactionTemplate.executeWithoutResult(status -> {
+			em.createQuery("delete from ActivityLog where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from FridgeInvite where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from FridgeMember where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from Fridge where id = :id").setParameter("id", fridgeId).executeUpdate();
