@@ -166,7 +166,7 @@ Table recipe_ingredients {
   quantity     decimal(8,2)
   unit         varchar(10)
   amount       varchar(50) [note: 'AI가 주는 분량 문자열 (예: 1/2모, 1큰술)']
-  source       varchar(10) [note: 'FRIDGE(냉장고 재료) / BASIC(기본 양념)']
+  source       varchar(10) [note: 'FRIDGE(냉장고 재료) / BASIC(기본 양념) / MISSING(냉장고에 없어 사야 하는 재료)']
   is_required  boolean [default: true]
 }
 

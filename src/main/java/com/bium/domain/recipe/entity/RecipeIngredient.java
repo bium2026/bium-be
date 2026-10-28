@@ -54,7 +54,7 @@ public class RecipeIngredient {
 	@Column(length = 50)
 	private String amount;
 
-	// 냉장고 재료인지 기본 양념인지
+	// 냉장고 재료인지, 기본 양념인지, 냉장고에 없어 사야 하는 재료인지
 	@Enumerated(EnumType.STRING)
 	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(length = 10)
