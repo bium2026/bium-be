@@ -55,7 +55,7 @@ public class FridgeInviteService {
 		fridgeAccessValidator.validateOwner(fridgeId, userId);
 		Fridge fridge = fridgeRepository.findByIdForUpdate(fridgeId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
-		fridgeInviteRepository.findAllActiveByFridgeId(fridgeId).forEach(FridgeInvite::deactivate);
+		fridgeInviteRepository.findAllActiveByFridgeIdForUpdate(fridgeId).forEach(FridgeInvite::deactivate);
 
 		// 화면에 보여 줄 시각이라 초 아래는 버린다
 		LocalDateTime expiresAt = LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS).plus(INVITE_VALIDITY);

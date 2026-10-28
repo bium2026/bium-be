@@ -49,7 +49,7 @@ public class FridgeMemberService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_MEMBER_NOT_FOUND));
 		fridgeMemberRepository.delete(target);
 		// 내보낸 사람이 아직 쓸 수 있는 코드로 바로 다시 들어오지 못하게 지금 코드도 막는다
-		fridgeInviteRepository.findAllActiveByFridgeId(fridgeId).forEach(FridgeInvite::deactivate);
+		fridgeInviteRepository.findAllActiveByFridgeIdForUpdate(fridgeId).forEach(FridgeInvite::deactivate);
 	}
 
 	public void leave(Long userId, Long fridgeId) {
