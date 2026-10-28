@@ -20,6 +20,7 @@ import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateResponse;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
+import com.bium.domain.ingredient.dto.FridgeItemPositionRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
@@ -48,6 +49,7 @@ public class FridgeItemService {
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final FridgeItemArranger fridgeItemArranger;
 	private final ActivityLogService activityLogService;
 	private final Clock clock;
 	private final EntityManager entityManager;
@@ -131,6 +133,27 @@ public class FridgeItemService {
 		// 바꾼 값 없이 저장만 누르면 버전이 그대로이므로 활동 기록에 쌓지 않는다
 		if (!item.getVersion().equals(request.version())) {
 			activityLogService.recordItem(userId, item, ActivityAction.UPDATE);
+		}
+		return FridgeItemResponse.from(item);
+	}
+
+	// 끌어다 놓은 칸의 원하는 위치로 옮긴다. 칸이 바뀔 때만 버전이 오르고 활동 기록을 남긴다
+	public FridgeItemResponse changePosition(Long userId, Long itemId, FridgeItemPositionRequest request) {
+		// 재료를 잠근 다음 냉장고를 잠가야, 그 뒤 칸 재료를 읽을 때 앞선 요청이 바꾼 순번까지 본다
+		FridgeItem item = fridgeItemRepository.findByIdForUpdate(itemId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
+		lockFridge(item.getFridge().getId());
+		if (!fridgeAccessValidator.isMember(item.getFridge().getId(), userId)) {
+			throw new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND);
+		}
+		validateVersion(item, request.version());
+
+		boolean sectionChanged = item.getStorage() != request.storage() || item.getSection() != request.section();
+		fridgeItemArranger.place(item, request.storage(), request.section(), request.index());
+		// 올라간 버전을 응답에 담으려고 바로 저장한다
+		fridgeItemRepository.flush();
+		if (sectionChanged) {
+			activityLogService.recordItem(userId, item, ActivityAction.MOVE);
 		}
 		return FridgeItemResponse.from(item);
 	}
