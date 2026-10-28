@@ -64,6 +64,25 @@ class RecipeServiceTransactionTest {
 
 	@Test
 	void Gemini를_기다리는_동안_트랜잭션을_열어_두지_않는다() {
+		saveFridgeWithTofu();
+		AtomicBoolean transactionActiveDuringAiCall = recordTransactionDuringAiCall();
+
+		recipeService.recommend(userId, fridgeId, false);
+
+		assertThat(transactionActiveDuringAiCall).isFalse();
+	}
+
+	@Test
+	void 만들고_싶은_음식도_Gemini를_기다리는_동안_트랜잭션을_열어_두지_않는다() {
+		saveFridgeWithTofu();
+		AtomicBoolean transactionActiveDuringAiCall = recordTransactionDuringAiCall();
+
+		recipeService.recommendTarget(userId, fridgeId, "두부 조림");
+
+		assertThat(transactionActiveDuringAiCall).isFalse();
+	}
+
+	private void saveFridgeWithTofu() {
 		transactionTemplate.executeWithoutResult(status -> {
 			User user = em.merge(new User("tx-user", "password", "유저"));
 			Fridge fridge = em.merge(new Fridge("냉장고"));
@@ -80,15 +99,15 @@ class RecipeServiceTransactionTest {
 			userId = user.getId();
 			fridgeId = fridge.getId();
 		});
+	}
+
+	private AtomicBoolean recordTransactionDuringAiCall() {
 		AtomicBoolean transactionActiveDuringAiCall = new AtomicBoolean(true);
 		given(geminiClient.generateJson(anyString())).willAnswer(invocation -> {
 			transactionActiveDuringAiCall.set(TransactionSynchronizationManager.isActualTransactionActive());
 			return GEMINI_RESPONSE;
 		});
-
-		recipeService.recommend(userId, fridgeId, false);
-
-		assertThat(transactionActiveDuringAiCall).isFalse();
+		return transactionActiveDuringAiCall;
 	}
 
 	@AfterEach

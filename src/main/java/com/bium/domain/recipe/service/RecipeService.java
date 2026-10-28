@@ -2,7 +2,6 @@ package com.bium.domain.recipe.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -51,11 +50,7 @@ public class RecipeService {
 	 */
 	public RecipeRecommendationResponse recommend(Long userId, Long fridgeId, boolean prioritizeUrgent) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		List<RecommendationIngredient> ingredients = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNull(fridgeId)
-			.stream()
-			.map(item -> new RecommendationIngredient(item.getId(), item.getName(), item.getEmoji(),
-				item.getExpiresAt()))
-			.toList();
+		List<RecommendationIngredient> ingredients = findIngredients(fridgeId);
 		// 쓸 재료가 없는 요청은 Gemini를 부르지 않으므로 호출 수를 쓰기 전에 거절한다
 		LocalDate today = LocalDate.now(clock);
 		if (ingredients.stream().noneMatch(ingredient -> ingredient.isUsable(today))) {
@@ -65,7 +60,23 @@ public class RecipeService {
 
 		List<RecommendedRecipe> recommendedRecipes = recommendationService.recommend(ingredients, prioritizeUrgent);
 
-		return transactionTemplate.execute(status -> save(userId, fridgeId, recommendedRecipes));
+		return transactionTemplate.execute(status -> new RecipeRecommendationResponse(recommendedRecipes.stream()
+			.map(recipe -> save(userId, fridgeId, recipe, RecipeType.RECOMMEND))
+			.toList()));
+	}
+
+	/**
+	 * 만들고 싶은 음식의 레시피를 받아 저장한다. 냉장고에 없는 재료는 MISSING으로 저장하고, 장보기 목록에는 담지 않는다.
+	 * 냉장고가 비어 있어도 만들 수 있다.
+	 */
+	public RecipeResponse recommendTarget(Long userId, Long fridgeId, String dishName) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		List<RecommendationIngredient> ingredients = findIngredients(fridgeId);
+		rateLimiter.check(String.valueOf(userId));
+
+		RecommendedRecipe recommendedRecipe = recommendationService.recommendTarget(dishName, ingredients);
+
+		return transactionTemplate.execute(status -> save(userId, fridgeId, recommendedRecipe, RecipeType.TARGET));
 	}
 
 	@Transactional(readOnly = true)
@@ -77,33 +88,34 @@ public class RecipeService {
 		return RecipeResponse.of(recipe, recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId)));
 	}
 
-	private RecipeRecommendationResponse save(Long userId, Long fridgeId, List<RecommendedRecipe> recommendedRecipes) {
-		Fridge fridge = fridgeRepository.getReferenceById(fridgeId);
-		User user = userRepository.getReferenceById(userId);
-
-		List<RecipeResponse> recipes = new ArrayList<>();
-		for (RecommendedRecipe recommendedRecipe : recommendedRecipes) {
-			Recipe recipe = recipeRepository.save(toRecipe(recommendedRecipe, fridge, user));
-			List<RecipeIngredient> ingredients = recipeIngredientRepository.saveAll(
-				recommendedRecipe.ingredients().stream()
-					.map(ingredient -> RecipeIngredient.builder()
-						.recipe(recipe)
-						.name(ingredient.name())
-						.amount(ingredient.amount())
-						.source(ingredient.source())
-						.isRequired(ingredient.required())
-						.build())
-					.toList());
-			recipes.add(RecipeResponse.of(recipe, ingredients));
-		}
-		return new RecipeRecommendationResponse(recipes);
+	private List<RecommendationIngredient> findIngredients(Long fridgeId) {
+		return fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNull(fridgeId).stream()
+			.map(item -> new RecommendationIngredient(item.getId(), item.getName(), item.getEmoji(),
+				item.getExpiresAt()))
+			.toList();
 	}
 
-	private Recipe toRecipe(RecommendedRecipe recommendedRecipe, Fridge fridge, User user) {
+	private RecipeResponse save(Long userId, Long fridgeId, RecommendedRecipe recommendedRecipe, RecipeType type) {
+		Recipe recipe = recipeRepository.save(toRecipe(recommendedRecipe, fridgeRepository.getReferenceById(fridgeId),
+			userRepository.getReferenceById(userId), type));
+		List<RecipeIngredient> ingredients = recipeIngredientRepository.saveAll(
+			recommendedRecipe.ingredients().stream()
+				.map(ingredient -> RecipeIngredient.builder()
+					.recipe(recipe)
+					.name(ingredient.name())
+					.amount(ingredient.amount())
+					.source(ingredient.source())
+					.isRequired(ingredient.required())
+					.build())
+				.toList());
+		return RecipeResponse.of(recipe, ingredients);
+	}
+
+	private Recipe toRecipe(RecommendedRecipe recommendedRecipe, Fridge fridge, User user, RecipeType type) {
 		return Recipe.builder()
 			.fridge(fridge)
 			.requestedBy(user)
-			.type(RecipeType.RECOMMEND)
+			.type(type)
 			.title(recommendedRecipe.name())
 			.emoji(recommendedRecipe.emoji())
 			.summary(recommendedRecipe.summary())

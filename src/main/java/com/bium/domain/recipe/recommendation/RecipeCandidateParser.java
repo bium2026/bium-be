@@ -46,6 +46,12 @@ public class RecipeCandidateParser {
 		return candidates;
 	}
 
+	// 음식이 아니라서 recipes를 빈 배열로 준 응답인지 본다. recipes가 없거나 배열이 아닌 잘못된 응답과 구분한다
+	public boolean hasNoRecipes(String text) {
+		JsonNode recipes = readJson(text).path("recipes");
+		return recipes.isArray() && recipes.isEmpty();
+	}
+
 	private JsonNode readJson(String text) {
 		String cleaned = text == null ? "" : text.strip();
 		cleaned = LEADING_CODE_FENCE.matcher(cleaned).replaceFirst("");

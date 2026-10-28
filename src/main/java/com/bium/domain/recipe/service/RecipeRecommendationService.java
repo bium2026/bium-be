@@ -20,7 +20,7 @@ import com.bium.global.gemini.GeminiClient;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 냉장고 재료로 Gemini에 레시피를 요청하고, 걸러낸 추천 레시피를 돌려준다.
+ * 냉장고 재료나 만들고 싶은 음식으로 Gemini에 레시피를 요청하고, 걸러낸 레시피를 돌려준다.
  * 저장은 하지 않으며, 냉장고 조회와 저장은 RecipeService가 맡는다.
  */
 @Service
@@ -38,10 +38,7 @@ public class RecipeRecommendationService {
 
 	public List<RecommendedRecipe> recommend(List<RecommendationIngredient> ingredients, boolean prioritizeUrgent) {
 		LocalDate today = LocalDate.now(clock);
-		List<RecommendationIngredient> usableIngredients = ingredients.stream()
-			.filter(ingredient -> ingredient.isUsable(today))
-			.sorted(BY_EXPIRY_DATE)
-			.toList();
+		List<RecommendationIngredient> usableIngredients = usableIngredients(ingredients, today);
 		if (usableIngredients.isEmpty()) {
 			throw new BusinessException(ErrorCode.NO_USABLE_INGREDIENT);
 		}
@@ -53,6 +50,28 @@ public class RecipeRecommendationService {
 			throw new BusinessException(ErrorCode.RECIPE_NO_RESULT);
 		}
 		return recipes;
+	}
+
+	// 유통기한이 지난 재료는 없는 재료로 보고 사야 할 재료로 알려 준다
+	public RecommendedRecipe recommendTarget(String dishName, List<RecommendationIngredient> ingredients) {
+		LocalDate today = LocalDate.now(clock);
+		List<RecommendationIngredient> usableIngredients = usableIngredients(ingredients, today);
+
+		String response = geminiClient.generateJson(promptBuilder.buildTarget(dishName, usableIngredients, today));
+		// 음식 이름이 아니면 빈 배열을 달라고 했으므로, 빈 배열이면 다시 시도해도 같은 결과로 본다
+		if (candidateParser.hasNoRecipes(response)) {
+			throw new BusinessException(ErrorCode.DISH_NOT_RECOGNIZED);
+		}
+		return candidateSelector.selectTarget(candidateParser.parse(response), usableIngredients, dishName)
+			.orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NO_RESULT));
+	}
+
+	private List<RecommendationIngredient> usableIngredients(List<RecommendationIngredient> ingredients,
+		LocalDate today) {
+		return ingredients.stream()
+			.filter(ingredient -> ingredient.isUsable(today))
+			.sorted(BY_EXPIRY_DATE)
+			.toList();
 	}
 
 }
