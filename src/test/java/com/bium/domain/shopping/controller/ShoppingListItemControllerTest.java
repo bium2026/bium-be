@@ -76,7 +76,9 @@ class ShoppingListItemControllerTest {
 		ShoppingListItem milk = item(fridge, "우유", null);
 		ShoppingListItem egg = item(fridge, "계란", null);
 		egg.check(true);
+		// 레시피 이름을 목록 조회에서 함께 불러오는지 보려고 미리 불러온 엔티티를 비운다
 		em.flush();
+		em.clear();
 
 		getItems(ownerToken)
 			.andExpect(status().isOk())
@@ -170,6 +172,11 @@ class ShoppingListItemControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"))
 			.andExpect(jsonPath("$.error.message").value("재료 이름은 50자까지 쓸 수 있습니다."));
+		add(memberToken, "{\"name\": \"두부\\n우유\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료 이름에 줄바꿈이나 제어 문자를 쓸 수 없습니다."));
+		add(memberToken, "{\"name\": \"\u200B\"}")
+			.andExpect(status().isBadRequest());
 
 		assertThat(countItems()).isZero();
 	}
@@ -191,6 +198,20 @@ class ShoppingListItemControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.checked").value(false));
 		assertThat(reload(tofu.getId()).isChecked()).isFalse();
+	}
+
+	@Test
+	void 레시피에서_담은_재료를_체크해도_레시피_이름을_준다() throws Exception {
+		Recipe recipe = Recipe.builder().fridge(fridge).title("두부조림").build();
+		em.persist(recipe);
+		ShoppingListItem tofu = item(fridge, "두부", recipe);
+		em.flush();
+		em.clear();
+
+		check(tofu.getId(), memberToken, "{\"checked\": true}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.recipeId").value(recipe.getId()))
+			.andExpect(jsonPath("$.data.recipeName").value("두부조림"));
 	}
 
 	@Test
