@@ -33,6 +33,7 @@ import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.entity.SectionType;
 import com.bium.domain.ingredient.entity.StorageType;
+import com.bium.domain.recipe.entity.Recipe;
 import com.bium.domain.user.entity.User;
 import com.jayway.jsonpath.JsonPath;
 
@@ -169,6 +170,45 @@ class ActivityLogControllerTest {
 	}
 
 	@Test
+	void 요리로_뺀_재료와_되돌린_재료를_하나씩_기록한다() throws Exception {
+		FridgeItem tofu = persistItem("두부");
+		FridgeItem greenOnion = persistItem("대파");
+		Recipe recipe = persistRecipe();
+
+		String cooked = cook(recipe, used(tofu, 0) + "," + used(greenOnion, 0))
+			.andExpect(status().isCreated())
+			.andReturn().getResponse().getContentAsString();
+		Integer cookingLogId = JsonPath.read(cooked, "$.data.id");
+		mockMvc.perform(post("/api/cooking-logs/{cookingLogId}/undo", cookingLogId)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
+			.andExpect(status().isOk());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data.length()").value(4))
+			.andExpect(jsonPath("$.data[0].action").value("RESTORE"))
+			.andExpect(jsonPath("$.data[0].nickname").value("윤호"))
+			.andExpect(jsonPath("$.data[0].itemName").value("대파"))
+			.andExpect(jsonPath("$.data[1].action").value("RESTORE"))
+			.andExpect(jsonPath("$.data[1].itemName").value("두부"))
+			.andExpect(jsonPath("$.data[2].action").value("DEDUCT"))
+			.andExpect(jsonPath("$.data[2].nickname").value("선재"))
+			.andExpect(jsonPath("$.data[2].itemName").value("대파"))
+			.andExpect(jsonPath("$.data[3].action").value("DEDUCT"))
+			.andExpect(jsonPath("$.data[3].itemName").value("두부"));
+	}
+
+	@Test
+	void 버전_확인에서_막힌_요리는_기록을_남기지_않는다() throws Exception {
+		FridgeItem tofu = persistTofu();
+
+		cook(persistRecipe(), used(tofu, 5))
+			.andExpect(status().isConflict());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data.length()").value(0));
+	}
+
+	@Test
 	void 최근_50개까지만_최근_순으로_보여_준다() throws Exception {
 		for (int i = 0; i <= 50; i++) {
 			em.persist(ActivityLog.builder()
@@ -222,17 +262,38 @@ class ActivityLogControllerTest {
 			.content(body));
 	}
 
+	private ResultActions cook(Recipe recipe, String items) throws Exception {
+		return mockMvc.perform(post("/api/recipes/{recipeId}/cooking-logs", recipe.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\": [" + items + "]}"));
+	}
+
+	private String used(FridgeItem item, int version) {
+		return "{\"fridgeItemId\": " + item.getId() + ", \"version\": " + version + "}";
+	}
+
+	private Recipe persistRecipe() {
+		Recipe recipe = Recipe.builder().fridge(fridge).title("두부조림").build();
+		em.persist(recipe);
+		return recipe;
+	}
+
 	private FridgeItem persistTofu() {
-		FridgeItem tofu = FridgeItem.builder()
+		return persistItem("두부");
+	}
+
+	private FridgeItem persistItem(String name) {
+		FridgeItem item = FridgeItem.builder()
 			.fridge(fridge)
-			.name("두부")
+			.name(name)
 			.quantity(BigDecimal.ONE)
 			.storage(StorageType.FRIDGE)
 			.section(SectionType.CENTER)
 			.sortOrder(0)
 			.build();
-		em.persist(tofu);
-		return tofu;
+		em.persist(item);
+		return item;
 	}
 
 }
