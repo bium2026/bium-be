@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.activity.entity.ActivityAction;
+import com.bium.domain.activity.service.ActivityLogService;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
@@ -37,6 +39,7 @@ public class FridgeItemService {
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final ActivityLogService activityLogService;
 	private final Clock clock;
 	private final EntityManager entityManager;
 
@@ -64,6 +67,7 @@ public class FridgeItemService {
 			.createdBy(userRepository.getReferenceById(userId))
 			.build();
 		fridgeItemRepository.save(item);
+		activityLogService.recordItem(userId, item, ActivityAction.ADD);
 		return FridgeItemResponse.from(item);
 	}
 
@@ -82,6 +86,7 @@ public class FridgeItemService {
 		item.update(request.name().strip(), blankToNull(request.emoji()), request.expiresAt());
 		// 올라간 버전을 응답에 담으려고 바로 저장한다
 		fridgeItemRepository.flush();
+		activityLogService.recordItem(userId, item, ActivityAction.UPDATE);
 		return FridgeItemResponse.from(item);
 	}
 
@@ -90,6 +95,7 @@ public class FridgeItemService {
 		FridgeItem item = findAccessibleItem(userId, itemId);
 		validateVersion(item, version);
 		item.delete(LocalDateTime.now(clock));
+		activityLogService.recordItem(userId, item, ActivityAction.DELETE);
 	}
 
 	// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
