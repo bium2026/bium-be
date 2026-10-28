@@ -4,12 +4,19 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
+import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
+import com.bium.domain.ingredient.dto.FridgeItemBulkCreateResponse;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
@@ -17,8 +24,10 @@ import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.entity.SectionType;
+import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
+import com.bium.domain.user.entity.User;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
@@ -65,6 +74,38 @@ public class FridgeItemService {
 			.build();
 		fridgeItemRepository.save(item);
 		return FridgeItemResponse.from(item);
+	}
+
+	// 영수증에서 읽은 재료처럼 도감에 없는 재료를 한 번에 넣는다. 보관 위치마다 중앙 칸 맨 뒤에 보낸 순서대로 놓는다
+	public FridgeItemBulkCreateResponse createAll(Long userId, Long fridgeId, FridgeItemBulkCreateRequest request) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+
+		LocalDate today = LocalDate.now(clock);
+		Fridge fridge = fridgeRepository.getReferenceById(fridgeId);
+		User createdBy = userRepository.getReferenceById(userId);
+		Map<StorageType, Integer> nextSortOrders = new EnumMap<>(StorageType.class);
+		List<FridgeItem> items = new ArrayList<>();
+		for (FridgeItemBulkCreateRequest.Item entry : request.items()) {
+			int sortOrder = nextSortOrders.computeIfAbsent(entry.storage(), storage -> {
+				Integer lastSortOrder = fridgeItemRepository.findMaxSortOrder(fridgeId, storage, SectionType.CENTER);
+				return lastSortOrder == null ? 0 : lastSortOrder + 1;
+			});
+			nextSortOrders.put(entry.storage(), sortOrder + 1);
+			items.add(FridgeItem.builder()
+				.fridge(fridge)
+				.name(entry.name().strip())
+				.emoji(blankToNull(entry.emoji()))
+				.quantity(BigDecimal.ONE)
+				.storage(entry.storage())
+				.section(SectionType.CENTER)
+				.sortOrder(sortOrder)
+				.purchasedAt(today)
+				.expiresAt(entry.expiresAt())
+				.createdBy(createdBy)
+				.build());
+		}
+		fridgeItemRepository.saveAll(items);
+		return new FridgeItemBulkCreateResponse(items.stream().map(FridgeItemResponse::from).toList());
 	}
 
 	@Transactional(readOnly = true)
