@@ -139,11 +139,14 @@ public class FridgeItemService {
 
 	// 끌어다 놓은 칸의 원하는 위치로 옮긴다. 칸이 바뀔 때만 버전이 오르고 활동 기록을 남긴다
 	public FridgeItemResponse changePosition(Long userId, Long itemId, FridgeItemPositionRequest request) {
-		// 재료를 잠근 다음 냉장고를 잠가야, 그 뒤 칸 재료를 읽을 때 앞선 요청이 바꾼 순번까지 본다
+		// 재료를 먼저 잠그면 같은 냉장고의 다른 재료를 옮기는 요청과 서로의 재료를 기다리는 교착 상태가 생긴다.
+		// 그래서 냉장고 → 재료 순서로 잠그고, 잠그며 다시 읽어 그사이 지워졌는지 확인한다
+		Long fridgeId = fridgeItemRepository.findFridgeIdById(itemId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
+		lockFridge(fridgeId);
 		FridgeItem item = fridgeItemRepository.findByIdForUpdate(itemId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
-		lockFridge(item.getFridge().getId());
-		if (!fridgeAccessValidator.isMember(item.getFridge().getId(), userId)) {
+		if (!fridgeAccessValidator.isMember(fridgeId, userId)) {
 			throw new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND);
 		}
 		validateVersion(item, request.version());
