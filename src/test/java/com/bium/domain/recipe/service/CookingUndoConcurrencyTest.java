@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bium.domain.activity.entity.ActivityAction;
 import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
@@ -107,11 +108,18 @@ class CookingUndoConcurrencyTest {
 		FridgeItem restored = transactionTemplate.execute(status -> em.find(FridgeItem.class, itemId));
 		assertThat(restored.isDeleted()).isFalse();
 		assertThat(restored.getQuantity()).isEqualByComparingTo(BigDecimal.ONE);
+		// 막힌 되돌리기는 활동 기록도 남기지 않는다
+		List<ActivityAction> actions = transactionTemplate.execute(status -> em.createQuery(
+				"select a.action from ActivityLog a where a.fridge.id = :id order by a.id", ActivityAction.class)
+			.setParameter("id", fridgeId)
+			.getResultList());
+		assertThat(actions).containsExactly(ActivityAction.DEDUCT, ActivityAction.RESTORE);
 	}
 
 	@AfterEach
 	void tearDown() {
 		transactionTemplate.executeWithoutResult(status -> {
+			em.createQuery("delete from ActivityLog where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from CookingLogItem").executeUpdate();
 			em.createQuery("delete from CookingLog where id = :id").setParameter("id", cookingLogId).executeUpdate();
 			em.createQuery("delete from FridgeItem where id = :id").setParameter("id", itemId).executeUpdate();
