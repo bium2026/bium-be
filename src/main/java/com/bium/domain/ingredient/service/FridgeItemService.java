@@ -86,7 +86,10 @@ public class FridgeItemService {
 		item.update(request.name().strip(), blankToNull(request.emoji()), request.expiresAt());
 		// 올라간 버전을 응답에 담으려고 바로 저장한다
 		fridgeItemRepository.flush();
-		activityLogService.recordItem(userId, item, ActivityAction.UPDATE);
+		// 바꾼 값 없이 저장만 누르면 버전이 그대로이므로 활동 기록에 쌓지 않는다
+		if (!item.getVersion().equals(request.version())) {
+			activityLogService.recordItem(userId, item, ActivityAction.UPDATE);
+		}
 		return FridgeItemResponse.from(item);
 	}
 
@@ -95,6 +98,9 @@ public class FridgeItemService {
 		FridgeItem item = findAccessibleItem(userId, itemId);
 		validateVersion(item, version);
 		item.delete(LocalDateTime.now(clock));
+		// 활동 기록이 재료 행을 참조해서, 기록을 먼저 넣으면 MySQL에서 동시에 지우는 두 요청이 서로 기다리다 막힌다.
+		// 삭제를 먼저 저장해 재료 행을 잡아 두면 늦은 요청은 버전 충돌(409)로 끝난다
+		fridgeItemRepository.flush();
 		activityLogService.recordItem(userId, item, ActivityAction.DELETE);
 	}
 

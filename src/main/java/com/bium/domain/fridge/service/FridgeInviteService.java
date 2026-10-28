@@ -100,7 +100,7 @@ public class FridgeInviteService {
 			// 참여 버튼을 두 번 눌러 동시에 들어온 요청은 (냉장고, 사용자) unique 제약에 걸린다
 			throw new BusinessException(ErrorCode.ALREADY_FRIDGE_MEMBER, e);
 		}
-		activityLogService.recordMember(invite.getFridge().getId(), userId, ActivityAction.JOIN);
+		activityLogService.recordMember(userId, invite.getFridge().getId(), ActivityAction.JOIN);
 		return FridgeResponse.from(member);
 	}
 
