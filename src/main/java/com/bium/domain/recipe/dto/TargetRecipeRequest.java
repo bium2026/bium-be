@@ -14,10 +14,12 @@ public record TargetRecipeRequest(
 
 	// 냉장고 재료 이름(FridgeItemCreateRequest)과 같은 규칙이다
 	private static final String NO_CONTROL_CHARACTER = "[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]*";
+	private static final String SURROUNDING_SPACE = "^\\p{Zs}+|\\p{Zs}+$";
 
-	// 전각 공백처럼 @NotBlank가 공백으로 보지 않는 문자만 있는 이름도 막으려고 검사 전에 앞뒤 공백을 뺀다
+	// 전각 공백처럼 @NotBlank가 공백으로 보지 않는 문자만 있는 이름도 막으려고 검사 전에 앞뒤 공백을 뺀다.
+	// 줄바꿈·탭은 빼지 않고 남겨 두어 @Pattern이 막게 한다
 	public TargetRecipeRequest {
-		dishName = dishName == null ? null : dishName.strip();
+		dishName = dishName == null ? null : dishName.replaceAll(SURROUNDING_SPACE, "");
 	}
 
 }
