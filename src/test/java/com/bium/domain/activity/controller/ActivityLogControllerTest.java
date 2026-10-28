@@ -113,6 +113,7 @@ class ActivityLogControllerTest {
 			.andExpect(jsonPath("$.data[1].nickname").value("선재"))
 			.andExpect(jsonPath("$.data[1].itemName").value("순두부"))
 			.andExpect(jsonPath("$.data[2].action").value("ADD"))
+			.andExpect(jsonPath("$.data[2].nickname").value("선재"))
 			.andExpect(jsonPath("$.data[2].itemName").value("두부"));
 	}
 
@@ -145,22 +146,23 @@ class ActivityLogControllerTest {
 	}
 
 	@Test
-	void 수정이_막히면_기록도_남지_않는다() throws Exception {
-		FridgeItem tofu = FridgeItem.builder()
-			.fridge(fridge)
-			.name("두부")
-			.quantity(BigDecimal.ONE)
-			.storage(StorageType.FRIDGE)
-			.section(SectionType.CENTER)
-			.sortOrder(0)
-			.build();
-		em.persist(tofu);
+	void 버전_확인에서_막힌_수정은_기록을_남기지_않는다() throws Exception {
+		FridgeItem tofu = persistTofu();
 
-		mockMvc.perform(put("/api/fridge-items/{itemId}", tofu.getId())
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"name\": \"순두부\", \"version\": 5}"))
+		update(tofu, "{\"name\": \"순두부\", \"version\": 5}")
 			.andExpect(status().isConflict());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data.length()").value(0));
+	}
+
+	@Test
+	void 바꾼_값_없이_저장하면_수정_기록을_남기지_않는다() throws Exception {
+		FridgeItem tofu = persistTofu();
+
+		update(tofu, "{\"name\": \"두부\", \"version\": 0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.version").value(0));
 
 		getActivities(memberToken)
 			.andExpect(jsonPath("$.data.length()").value(0));
@@ -211,6 +213,26 @@ class ActivityLogControllerTest {
 	private ResultActions getActivities(String token) throws Exception {
 		return mockMvc.perform(get("/api/fridges/{fridgeId}/activities", fridge.getId())
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+	}
+
+	private ResultActions update(FridgeItem item, String body) throws Exception {
+		return mockMvc.perform(put("/api/fridge-items/{itemId}", item.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
+	}
+
+	private FridgeItem persistTofu() {
+		FridgeItem tofu = FridgeItem.builder()
+			.fridge(fridge)
+			.name("두부")
+			.quantity(BigDecimal.ONE)
+			.storage(StorageType.FRIDGE)
+			.section(SectionType.CENTER)
+			.sortOrder(0)
+			.build();
+		em.persist(tofu);
+		return tofu;
 	}
 
 }
