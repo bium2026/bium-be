@@ -122,10 +122,11 @@ public class CookingService {
 				.deletedByDeduction(true)
 				.build());
 		}
-		cookingLogItemRepository.saveAll(logItems);
-		// 그 사이 다른 멤버가 같은 재료를 고쳤으면 여기서 버전 충돌로 막는다
+		// 그 사이 다른 멤버가 같은 재료를 고쳤으면 여기서 버전 충돌로 막는다.
+		// 차감 기록과 활동 기록은 재료 행을 참조해서, 먼저 넣으면 MySQL에서 같은 재료를 동시에 빼는 두 요청이 서로 기다리다 막힌다.
+		// 차감을 먼저 저장해 재료 행을 잡아 두면 늦은 요청은 버전 충돌(409)로 끝난다
 		fridgeItemRepository.flush();
-		// 활동 기록이 재료 행을 참조하므로 차감을 먼저 저장해 재료 행을 잡아 둔 뒤 기록을 남긴다
+		cookingLogItemRepository.saveAll(logItems);
 		versions.keySet().forEach(itemId ->
 			activityLogService.recordItem(userId, items.get(itemId), ActivityAction.DEDUCT));
 
