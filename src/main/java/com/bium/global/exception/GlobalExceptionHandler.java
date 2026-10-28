@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.bium.global.response.ApiResponse;
@@ -58,6 +59,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			.map(FieldError::getDefaultMessage)
 			.orElse(ErrorCode.INVALID_INPUT.getMessage());
 		return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.INVALID_INPUT.name(), message));
+	}
+
+	// spring.servlet.multipart의 크기 제한을 넘은 사진
+	@Override
+	protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex,
+		HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+		ErrorCode errorCode = ErrorCode.IMAGE_TOO_LARGE;
+		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
 	}
 
 	// 잘못된 JSON, 없는 주소, 지원하지 않는 메서드 같은 Spring MVC 기본 예외도 공통 응답 형식으로 보낸다
