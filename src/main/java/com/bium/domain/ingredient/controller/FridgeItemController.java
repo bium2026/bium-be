@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
+import com.bium.domain.ingredient.dto.FridgeItemBulkCreateResponse;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
@@ -35,6 +37,14 @@ public class FridgeItemController {
 		@PathVariable Long fridgeId, @Valid @RequestBody FridgeItemCreateRequest request) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
 			fridgeItemService.create(Long.valueOf(jwt.getSubject()), fridgeId, request)));
+	}
+
+	// 영수증에서 읽은 재료를 화면에서 고친 뒤 한 번에 넣는다
+	@PostMapping("/api/fridges/{fridgeId}/items/bulk")
+	public ResponseEntity<ApiResponse<FridgeItemBulkCreateResponse>> createAll(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long fridgeId, @Valid @RequestBody FridgeItemBulkCreateRequest request) {
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+			fridgeItemService.createAll(Long.valueOf(jwt.getSubject()), fridgeId, request)));
 	}
 
 	@GetMapping("/api/fridges/{fridgeId}/items")

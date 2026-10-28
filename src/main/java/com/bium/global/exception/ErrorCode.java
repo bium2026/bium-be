@@ -33,6 +33,9 @@ public enum ErrorCode {
 	AI_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "레시피 추천에 실패했습니다. 잠시 후 다시 시도해 주세요."),
 	RECIPE_NO_RESULT(HttpStatus.BAD_GATEWAY, "추천할 수 있는 레시피를 받지 못했습니다. 다시 시도해 주세요."),
 	AI_QUOTA_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "AI 추천 사용 한도를 넘었습니다. 잠시 후 다시 시도해 주세요."),
+	INVALID_RECEIPT_IMAGE(HttpStatus.BAD_REQUEST, "JPG, PNG, WEBP, HEIC 사진을 올려 주세요."),
+	IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "사진은 10MB까지 올릴 수 있습니다."),
+	RECEIPT_SCAN_FAILED(HttpStatus.BAD_GATEWAY, "영수증을 읽지 못했습니다. 잠시 후 다시 시도해 주세요."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
 	private final HttpStatus status;

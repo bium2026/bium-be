@@ -12,6 +12,11 @@ spring:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     open-in-view: false
+  servlet:
+    multipart:
+      # 영수증 사진. 휴대폰 사진이 보통 3~8MB라 10MB까지 받는다
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 cors:
   # 쉼표로 구분한 프론트 주소 목록
