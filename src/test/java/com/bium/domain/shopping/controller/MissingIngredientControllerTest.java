@@ -106,6 +106,18 @@ class MissingIngredientControllerTest {
 	}
 
 	@Test
+	void 이름이_겹치는_안_산_재료가_있으면_건너뛰고_다른_냉장고_목록은_보지_않는다() throws Exception {
+		shoppingItem("두부 한 모");
+		Fridge others = em.merge(new Fridge("남의 냉장고"));
+		em.persist(ShoppingListItem.builder().fridge(others).createdBy(owner).name("대파").build());
+
+		add(memberToken, "\"두부\", \"대파\"")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.items.length()").value(1))
+			.andExpect(jsonPath("$.data.items[0].name").value("대파"));
+	}
+
+	@Test
 	void 같은_재료를_두_번_보내도_한_번만_담는다() throws Exception {
 		add(memberToken, "\"두부\", \" 두부 \"")
 			.andExpect(status().isCreated())
@@ -130,6 +142,19 @@ class MissingIngredientControllerTest {
 			.andExpect(jsonPath("$.error.message").value("장보기 목록에 담을 재료를 골라 주세요."));
 		add(memberToken, "\" \"")
 			.andExpect(status().isBadRequest());
+		add(memberToken, "\"두부\", ".repeat(30) + "\"대파\"")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료는 한 번에 30개까지 담을 수 있습니다."));
+	}
+
+	@Test
+	void 없는_레시피면_404를_반환한다() throws Exception {
+		mockMvc.perform(post("/api/recipes/{recipeId}/shopping-list-items", recipe.getId() + 1000)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"names\": [\"두부\"]}"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("RECIPE_NOT_FOUND"));
 	}
 
 	@Test
