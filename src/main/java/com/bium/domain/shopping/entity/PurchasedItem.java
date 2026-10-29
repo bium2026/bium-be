@@ -109,4 +109,10 @@ public class PurchasedItem {
 		this.source = source;
 	}
 
+	// 냉장고로 옮긴 뒤에도 무엇을 언제 옮겼는지 남도록 지우지 않고 기록한다
+	public void moveTo(FridgeItem fridgeItem, LocalDateTime movedAt) {
+		this.fridgeItem = fridgeItem;
+		this.movedAt = movedAt;
+	}
+
 }

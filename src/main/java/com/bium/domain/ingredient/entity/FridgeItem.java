@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.OptimisticLock;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import com.bium.domain.fridge.entity.Fridge;
@@ -28,7 +30,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 소프트 삭제된 재료도 요리 되돌리기에서 다시 불러와야 해서 @SQLRestriction을 걸지 않고, 조회할 때 deleted_at으로 거른다
+// 소프트 삭제된 재료도 요리 되돌리기에서 다시 불러와야 해서 @SQLRestriction을 걸지 않고, 조회할 때 deleted_at으로 거른다.
+// 순번은 버전을 올리지 않아서, 모든 열을 쓰면 순번이 바뀌기 전에 불러온 재료를 고칠 때 예전 순번으로 되돌아간다.
+// 그래서 바뀐 열만 UPDATE한다
+@DynamicUpdate
 @Entity
 @Table(name = "fridge_items", indexes = {
 	@Index(columnList = "fridge_id, storage, section, sort_order"),
@@ -71,6 +76,9 @@ public class FridgeItem {
 	@Column(nullable = false)
 	private SectionType section;
 
+	// 재료 하나를 옮기면 같은 칸 재료의 순번이 함께 바뀐다. 그때마다 버전이 오르면 다른 멤버의 이름·유통기한 수정이
+	// 충돌로 막히므로 순번 변경은 버전을 올리지 않는다. 순번은 냉장고 행을 잠가 한 번에 한 요청만 바꾼다
+	@OptimisticLock(excluded = true)
 	@Column(nullable = false)
 	private Integer sortOrder;
 
@@ -130,6 +138,16 @@ public class FridgeItem {
 
 	public boolean isDeleted() {
 		return deletedAt != null;
+	}
+
+	// 다른 보관 구역이나 칸으로 옮긴다. 칸 안 순번은 changeSortOrder로 따로 매긴다
+	public void moveTo(StorageType storage, SectionType section) {
+		this.storage = storage;
+		this.section = section;
+	}
+
+	public void changeSortOrder(int sortOrder) {
+		this.sortOrder = sortOrder;
 	}
 
 	// 요리에 쓴 재료를 모두 빼서 냉장고에서 지운다. 뺀 수량을 돌려준다

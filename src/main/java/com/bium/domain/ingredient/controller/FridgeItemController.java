@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -17,6 +18,7 @@ import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateResponse;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
+import com.bium.domain.ingredient.dto.FridgeItemPositionRequest;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
 import com.bium.domain.ingredient.service.FridgeItemService;
@@ -60,6 +62,14 @@ public class FridgeItemController {
 		@PathVariable Long itemId, @Valid @RequestBody FridgeItemUpdateRequest request) {
 		return ResponseEntity.ok(ApiResponse.success(
 			fridgeItemService.update(Long.valueOf(jwt.getSubject()), itemId, request)));
+	}
+
+	// 끌어다 놓은 칸과 칸 안의 위치로 옮긴다
+	@PatchMapping("/api/fridge-items/{itemId}/position")
+	public ResponseEntity<ApiResponse<FridgeItemResponse>> changePosition(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long itemId, @Valid @RequestBody FridgeItemPositionRequest request) {
+		return ResponseEntity.ok(ApiResponse.success(
+			fridgeItemService.changePosition(Long.valueOf(jwt.getSubject()), itemId, request)));
 	}
 
 	@DeleteMapping("/api/fridge-items/{itemId}")
