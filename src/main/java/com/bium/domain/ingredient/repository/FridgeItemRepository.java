@@ -1,5 +1,6 @@
 package com.bium.domain.ingredient.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,10 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 	List<FridgeItem> findAllInSectionForUpdate(Long fridgeId, StorageType storage, SectionType section);
 
 	Optional<FridgeItem> findByIdAndDeletedAtIsNull(Long id);
+
+	// 여러 재료를 함께 고칠 때 MySQL이 행을 잠그는 순서를 요청끼리 같게 하려고 id 순서로 가져온다
+	@Query("select i from FridgeItem i where i.id in :ids order by i.id")
+	List<FridgeItem> findAllByIdInOrderById(Collection<Long> ids);
 
 	// 냉장고를 먼저 잠그려고 재료를 잠그기 전에 냉장고 id만 읽는다. 재료 엔티티를 읽어 두면 뒤에서 잠그며 다시 읽어도
 	// 처음 읽은 값을 그대로 쓰게 된다
