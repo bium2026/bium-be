@@ -112,6 +112,7 @@ public class FridgeItemService {
 				.build());
 		}
 		fridgeItemRepository.saveAll(items);
+		items.forEach(item -> activityLogService.recordItem(userId, item, ActivityAction.ADD));
 		return new FridgeItemBulkCreateResponse(items.stream().map(FridgeItemResponse::from).toList());
 	}
 

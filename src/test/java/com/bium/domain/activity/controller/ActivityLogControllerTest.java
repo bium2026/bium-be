@@ -119,6 +119,30 @@ class ActivityLogControllerTest {
 	}
 
 	@Test
+	void 재료를_여러_개_한번에_넣으면_재료마다_기록한다() throws Exception {
+		addAll("{\"name\": \"우유\", \"storage\": \"FRIDGE\"}, {\"name\": \"감자\", \"storage\": \"ROOM\"}")
+			.andExpect(status().isCreated());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data.length()").value(2))
+			.andExpect(jsonPath("$.data[0].action").value("ADD"))
+			.andExpect(jsonPath("$.data[0].nickname").value("선재"))
+			.andExpect(jsonPath("$.data[0].itemName").value("감자"))
+			.andExpect(jsonPath("$.data[1].action").value("ADD"))
+			.andExpect(jsonPath("$.data[1].nickname").value("선재"))
+			.andExpect(jsonPath("$.data[1].itemName").value("우유"));
+	}
+
+	@Test
+	void 입력이_잘못된_재료가_섞이면_기록을_남기지_않는다() throws Exception {
+		addAll("{\"name\": \"우유\", \"storage\": \"FRIDGE\"}, {\"name\": \" \", \"storage\": \"ROOM\"}")
+			.andExpect(status().isBadRequest());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data.length()").value(0));
+	}
+
+	@Test
 	void 참여_나가기_내보내기를_기록한다() throws Exception {
 		em.persist(new FridgeInvite(fridge, "K7MX2QPA", owner, LocalDateTime.now(clock).plusHours(1)));
 
@@ -267,6 +291,13 @@ class ActivityLogControllerTest {
 	private ResultActions getActivities(String token) throws Exception {
 		return mockMvc.perform(get("/api/fridges/{fridgeId}/activities", fridge.getId())
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+	}
+
+	private ResultActions addAll(String items) throws Exception {
+		return mockMvc.perform(post("/api/fridges/{fridgeId}/items/bulk", fridge.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\": [" + items + "]}"));
 	}
 
 	private ResultActions update(FridgeItem item, String body) throws Exception {
