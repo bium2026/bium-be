@@ -194,6 +194,7 @@ Table activity_logs {
   fridge_id       bigint [ref: > fridges.id, not null]
   user_id         bigint [ref: > users.id, not null]
   fridge_item_id  bigint [ref: > fridge_items.id, null]
+  cooking_log_id  bigint [ref: > cooking_logs.id, null, note: '요리 차감·되돌리기 기록일 때 어느 요리인지. 활동 기록에서 되돌릴 때 쓴다']
   item_name       varchar(50) [note: '재료 삭제 후에도 보이도록 스냅샷']
   action          varchar(20) [note: 'ADD/UPDATE/MOVE/DELETE/DEDUCT/RESTORE/JOIN/LEAVE']
   detail          json
