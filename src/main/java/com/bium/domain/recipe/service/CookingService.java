@@ -128,7 +128,7 @@ public class CookingService {
 		fridgeItemRepository.flush();
 		cookingLogItemRepository.saveAll(logItems);
 		versions.keySet().forEach(itemId ->
-			activityLogService.recordItem(userId, items.get(itemId), ActivityAction.DEDUCT));
+			activityLogService.recordCooking(userId, items.get(itemId), cookingLog, ActivityAction.DEDUCT));
 
 		return new CookingLogResponse(cookingLog.getId(), recipeId, List.copyOf(versions.keySet()),
 			cookingLog.getCookedAt());
@@ -150,7 +150,7 @@ public class CookingService {
 		LocalDateTime now = LocalDateTime.now(clock);
 		cookingLog.undo(now);
 		fridgeItemRepository.flush();
-		restoredItems.forEach(item -> activityLogService.recordItem(userId, item, ActivityAction.RESTORE));
+		restoredItems.forEach(item -> activityLogService.recordCooking(userId, item, cookingLog, ActivityAction.RESTORE));
 
 		return new CookingUndoResponse(cookingLogId, restoredItems.stream().map(FridgeItem::getId).toList(), now);
 	}
