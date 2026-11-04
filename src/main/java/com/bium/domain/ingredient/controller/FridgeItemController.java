@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateResponse;
+import com.bium.domain.ingredient.dto.FridgeItemBulkDeleteRequest;
+import com.bium.domain.ingredient.dto.FridgeItemBulkDeleteResponse;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemPositionRequest;
@@ -47,6 +49,14 @@ public class FridgeItemController {
 		@PathVariable Long fridgeId, @Valid @RequestBody FridgeItemBulkCreateRequest request) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
 			fridgeItemService.createAll(Long.valueOf(jwt.getSubject()), fridgeId, request)));
+	}
+
+	// 유통기한 지난 재료처럼 여러 재료를 한 번에 지운다. 지운 재료 id를 돌려주려고 DELETE 대신 POST로 둔다
+	@PostMapping("/api/fridges/{fridgeId}/items/bulk-delete")
+	public ResponseEntity<ApiResponse<FridgeItemBulkDeleteResponse>> deleteAll(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long fridgeId, @Valid @RequestBody FridgeItemBulkDeleteRequest request) {
+		return ResponseEntity.ok(ApiResponse.success(
+			fridgeItemService.deleteAll(Long.valueOf(jwt.getSubject()), fridgeId, request)));
 	}
 
 	@GetMapping("/api/fridges/{fridgeId}/items")

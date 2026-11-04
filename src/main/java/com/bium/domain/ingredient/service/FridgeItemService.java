@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +20,8 @@ import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeItemBulkCreateResponse;
+import com.bium.domain.ingredient.dto.FridgeItemBulkDeleteRequest;
+import com.bium.domain.ingredient.dto.FridgeItemBulkDeleteResponse;
 import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeItemPositionRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
@@ -171,6 +174,29 @@ public class FridgeItemService {
 		// 삭제를 먼저 저장해 재료 행을 잡아 두면 늦은 요청은 버전 충돌(409)로 끝난다
 		fridgeItemRepository.flush();
 		activityLogService.recordItem(userId, item, ActivityAction.DELETE);
+	}
+
+	// 유통기한 지난 재료처럼 여러 재료를 한 번에 지운다. 하나라도 지울 수 없으면 아무것도 지우지 않는다
+	public FridgeItemBulkDeleteResponse deleteAll(Long userId, Long fridgeId, FridgeItemBulkDeleteRequest request) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		// 같은 재료를 두 번 보내도 한 번만 지운다
+		Map<Long, Integer> versions = new LinkedHashMap<>();
+		request.items().forEach(item -> versions.putIfAbsent(item.fridgeItemId(), item.version()));
+
+		List<FridgeItem> items = fridgeItemRepository.findAllByIdInOrderById(versions.keySet());
+		// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
+		if (items.size() != versions.size()
+			|| items.stream().anyMatch(item -> item.isDeleted() || !item.getFridge().getId().equals(fridgeId))) {
+			throw new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND);
+		}
+		items.forEach(item -> validateVersion(item, versions.get(item.getId())));
+
+		LocalDateTime now = LocalDateTime.now(clock);
+		items.forEach(item -> item.delete(now));
+		// 하나씩 지울 때와 같이 삭제를 먼저 저장해 재료 행을 잡아 둔 뒤 활동 기록을 남긴다
+		fridgeItemRepository.flush();
+		items.forEach(item -> activityLogService.recordItem(userId, item, ActivityAction.DELETE));
+		return new FridgeItemBulkDeleteResponse(List.copyOf(versions.keySet()));
 	}
 
 	// 같은 냉장고에 동시에 재료를 넣으면 같은 순번(sortOrder)을 받으므로 냉장고 행을 잠가 하나씩 처리한다.
