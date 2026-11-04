@@ -14,6 +14,7 @@ import com.bium.domain.activity.repository.ActivityLogRepository;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.entity.FridgeItem;
+import com.bium.domain.recipe.entity.CookingLog;
 import com.bium.domain.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,19 @@ public class ActivityLogService {
 			.fridge(item.getFridge())
 			.user(userRepository.getReferenceById(userId))
 			.fridgeItem(item)
+			.itemName(item.getName())
+			.action(action)
+			.build());
+	}
+
+	// 요리로 재료를 줄이거나 되돌린 기록을 어느 요리인지와 함께 남긴다
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void recordCooking(Long userId, FridgeItem item, CookingLog cookingLog, ActivityAction action) {
+		activityLogRepository.save(ActivityLog.builder()
+			.fridge(item.getFridge())
+			.user(userRepository.getReferenceById(userId))
+			.fridgeItem(item)
+			.cookingLog(cookingLog)
 			.itemName(item.getName())
 			.action(action)
 			.build());
