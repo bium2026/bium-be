@@ -224,6 +224,45 @@ class ActivityLogControllerTest {
 	}
 
 	@Test
+	void 요리_기록에는_어느_요리인지와_되돌렸는지를_함께_돌려준다() throws Exception {
+		FridgeItem tofu = persistItem("두부");
+		String cooked = cook(persistRecipe(), used(tofu, 0))
+			.andExpect(status().isCreated())
+			.andReturn().getResponse().getContentAsString();
+		Integer cookingLogId = JsonPath.read(cooked, "$.data.id");
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data[0].cookingLogId").value(cookingLogId))
+			.andExpect(jsonPath("$.data[0].undone").value(false));
+
+		mockMvc.perform(post("/api/cooking-logs/{cookingLogId}/undo", cookingLogId)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken))
+			.andExpect(status().isOk());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data[0].action").value("RESTORE"))
+			.andExpect(jsonPath("$.data[0].cookingLogId").value(cookingLogId))
+			.andExpect(jsonPath("$.data[0].undone").value(true))
+			.andExpect(jsonPath("$.data[1].action").value("DEDUCT"))
+			.andExpect(jsonPath("$.data[1].cookingLogId").value(cookingLogId))
+			.andExpect(jsonPath("$.data[1].undone").value(true));
+	}
+
+	@Test
+	void 요리와_상관없는_기록은_요리_정보가_비어_있다() throws Exception {
+		FridgeItem tofu = persistItem("두부");
+		mockMvc.perform(delete("/api/fridge-items/{itemId}", tofu.getId())
+				.param("version", "0")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken))
+			.andExpect(status().isNoContent());
+
+		getActivities(memberToken)
+			.andExpect(jsonPath("$.data[0].action").value("DELETE"))
+			.andExpect(jsonPath("$.data[0].cookingLogId").doesNotExist())
+			.andExpect(jsonPath("$.data[0].undone").value(false));
+	}
+
+	@Test
 	void 같은_재료를_두_번_보내도_차감_기록은_하나만_남긴다() throws Exception {
 		FridgeItem tofu = persistTofu();
 
