@@ -8,6 +8,7 @@ import org.hibernate.type.SqlTypes;
 
 import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.ingredient.entity.FridgeItem;
+import com.bium.domain.recipe.entity.CookingLog;
 import com.bium.domain.user.entity.User;
 
 import jakarta.persistence.Column;
@@ -49,6 +50,11 @@ public class ActivityLog {
 	@JoinColumn(name = "fridge_item_id")
 	private FridgeItem fridgeItem;
 
+	// 요리로 재료를 줄이거나 되돌린 기록이면 어느 요리인지 남긴다. 활동 기록에서 그 요리를 되돌릴 때 쓴다
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "cooking_log_id")
+	private CookingLog cookingLog;
+
 	// 재료가 삭제된 뒤에도 기록에 이름이 보이도록 저장해 둔다
 	@Column(length = 50)
 	private String itemName;
@@ -65,11 +71,12 @@ public class ActivityLog {
 	private LocalDateTime createdAt;
 
 	@Builder
-	public ActivityLog(Fridge fridge, User user, FridgeItem fridgeItem, String itemName, ActivityAction action,
-		String detail) {
+	public ActivityLog(Fridge fridge, User user, FridgeItem fridgeItem, CookingLog cookingLog, String itemName,
+		ActivityAction action, String detail) {
 		this.fridge = fridge;
 		this.user = user;
 		this.fridgeItem = fridgeItem;
+		this.cookingLog = cookingLog;
 		this.itemName = itemName;
 		this.action = action;
 		this.detail = detail;
