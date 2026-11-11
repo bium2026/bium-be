@@ -137,6 +137,17 @@ Table shopping_list_items {   // 장보기 목록 (냉장고 단위로 공유)
   indexes { (fridge_id, is_checked) }
 }
 
+Table market_prices {   // KAMIS 소매가 시세 (장보기 목록 표시용, 매일 덮어씀)
+  id              bigint [pk, increment]
+  item_name       varchar(50) [unique, not null, note: 'KAMIS 품목명. shopping_list_items.name과 같은 이름으로 맞춤']
+  kind_name       varchar(50) [note: '대표 품종명']
+  unit            varchar(20) [note: '조사 단위 (예: 1kg, 10개)']
+  price           int [not null, note: '상품 등급 평균 소매가(원)']
+  week_ago_price  int [note: '1주일 전 가격']
+  survey_date     date [not null, note: '조사일']
+  fetched_at      datetime
+}
+
 // ───────── 레시피·차감 ─────────
 Table recipes {
   id            bigint [pk, increment]
