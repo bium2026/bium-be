@@ -72,7 +72,6 @@ public class IngredientCatalogService {
 		ingredientCatalogRepository.detachPurchasedItems(catalogId);
 		ingredientCatalogRepository.detachShoppingListItems(catalogId);
 		ingredientCatalogRepository.detachRecipeIngredients(catalogId);
-		ingredientCatalogRepository.deleteNutritionInfo(catalogId);
 		ingredientCatalogRepository.delete(catalog);
 	}
 
