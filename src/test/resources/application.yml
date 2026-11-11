@@ -25,6 +25,13 @@ gemini:
   connect-timeout: 1s
   read-timeout: 1s
 
+nutrition-api:
+  service-key: test-service-key
+  base-url: http://localhost:0
+  page-size: 100
+  connect-timeout: 1s
+  read-timeout: 1s
+
 recipe:
   recommendation:
     rate-limit-per-minute: 1000

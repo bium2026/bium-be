@@ -38,6 +38,7 @@ public enum ErrorCode {
 	INVALID_RECEIPT_IMAGE(HttpStatus.BAD_REQUEST, "JPG, PNG, WEBP, HEIC 사진을 올려 주세요."),
 	IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "사진은 10MB까지 올릴 수 있습니다."),
 	RECEIPT_SCAN_FAILED(HttpStatus.BAD_GATEWAY, "영수증을 읽지 못했습니다. 잠시 후 다시 시도해 주세요."),
+	NUTRITION_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "영양 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
 	private final HttpStatus status;
