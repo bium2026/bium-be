@@ -17,7 +17,6 @@ import com.bium.domain.recipe.repository.RecipeIngredientRepository;
 import com.bium.domain.recipe.repository.RecipeRepository;
 import com.bium.domain.shopping.dto.MissingIngredientAddRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemListResponse;
-import com.bium.domain.shopping.dto.ShoppingListItemResponse;
 import com.bium.domain.shopping.entity.ShoppingListItem;
 import com.bium.domain.shopping.repository.ShoppingListItemRepository;
 import com.bium.domain.user.repository.UserRepository;
@@ -40,6 +39,7 @@ public class MissingIngredientService {
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final MarketPriceService marketPriceService;
 
 	// 고른 재료 중 하나라도 이 레시피의 부족 재료가 아니면 아무것도 담지 않는다
 	public ShoppingListItemListResponse add(Long userId, Long recipeId, MissingIngredientAddRequest request) {
@@ -79,7 +79,7 @@ public class MissingIngredientService {
 				.build())
 			.toList();
 		shoppingListItemRepository.saveAll(items);
-		return new ShoppingListItemListResponse(items.stream().map(ShoppingListItemResponse::from).toList());
+		return ShoppingListItemListResponse.of(items, marketPriceService.findByItemNames(names));
 	}
 
 }
