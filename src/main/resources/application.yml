@@ -35,6 +35,15 @@ gemini:
   connect-timeout: 5s
   read-timeout: 30s
 
+kamis:
+  cert-key: ${KAMIS_CERT_KEY:}
+  cert-id: ${KAMIS_CERT_ID:}
+  base-url: https://www.kamis.or.kr
+  connect-timeout: 5s
+  read-timeout: 10s
+  # 장보기 목록 시세. 하루 한 번 저녁에 받는다
+  collect-cron: ${KAMIS_COLLECT_CRON:0 0 18 * * *}
+
 recipe:
   recommendation:
     # 사용자당 분당 추천 요청 수
