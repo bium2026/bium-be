@@ -37,6 +37,9 @@ public class NutritionService {
 	private static final Duration NOT_FOUND_RETRY_INTERVAL = Duration.ofDays(30);
 	// 한 번 찾을 때 식약처를 부르는 최대 횟수. 마지막 페이지는 4~6초 걸리고 재료 수정 모달이 기다리는 시간이라 적게 둔다
 	private static final int MAX_SEARCH_PAGES = 2;
+	// 첫 페이지가 이보다 오래 걸렸으면 다음 페이지는 받지 않는다. 한 번 부르는 데 최대 12초(연결 2초 + 응답 10초)라서
+	// 모달이 기다리는 시간을 많아야 약 17초로 묶는다
+	private static final Duration MORE_PAGES_BUDGET = Duration.ofSeconds(5);
 	private static final Pattern SPACES = Pattern.compile("\\s+");
 	// 식약처가 다른 이름을 쓰는 흔한 재료. 검색어를 식약처 이름으로 바꿔 찾는다
 	private static final Map<String, String> SEARCH_ALIASES = Map.of("계란", "달걀");
@@ -98,13 +101,16 @@ public class NutritionService {
 	/**
 	 * 검색은 이름 일부만 맞아도 오고 순서가 없어서, 이름이 같은 식품이 첫 페이지에 없을 수 있다.
 	 * 이름이 같은 식품이 나오거나 결과가 끝날 때까지 몇 페이지 더 받아 본 뒤 그 안에서 고른다.
+	 * 시간이 모자라 다음 페이지를 받지 못했으면 받은 결과 안에서 고른다. 실패로 두면 같은 이름을 찾을 때마다 다시 시간이 모자라 끝내 저장되지 않는다.
 	 */
 	private Food searchBestMatch(String searchName) {
+		long startedAt = clock.millis();
 		List<Food> foods = new ArrayList<>();
 		for (int pageNo = 1; pageNo <= MAX_SEARCH_PAGES; pageNo++) {
 			SearchPage page = foodNutritionClient.searchByName(searchName, pageNo);
 			foods.addAll(page.foods());
-			if (!page.hasNext() || FoodMatcher.hasExactMatch(searchName, page.foods())) {
+			boolean outOfTime = clock.millis() - startedAt > MORE_PAGES_BUDGET.toMillis();
+			if (!page.hasNext() || FoodMatcher.hasExactMatch(searchName, page.foods()) || outOfTime) {
 				break;
 			}
 		}
