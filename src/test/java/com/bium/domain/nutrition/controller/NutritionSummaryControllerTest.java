@@ -82,7 +82,8 @@ class NutritionSummaryControllerTest {
 		// 기준량이 200g이면 100g당 값으로 바꿔 더한다
 		saveNutrition("우유", "200", "130", "9.6", "6.4", "7.2");
 		saveNutrition("계란", "100", "136", "1.4", "12.4", null);
-		saveNotFound("수제 소스", LocalDateTime.now(clock));
+		// 검색어는 띄어쓰기를 지운 이름이다
+		saveNotFound("수제소스", LocalDateTime.now(clock));
 		FridgeItem tofu = saveItem("두부", StorageType.FRIDGE, null);
 		FridgeItem milk = saveItem("우유", StorageType.FRIDGE, null);
 		saveItem("계란", StorageType.FRIDGE, null);
