@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,7 @@ import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
 import com.bium.domain.recipe.entity.Recipe;
+import com.bium.domain.shopping.entity.MarketPrice;
 import com.bium.domain.shopping.entity.ShoppingListItem;
 import com.bium.domain.user.entity.User;
 import com.jayway.jsonpath.JsonPath;
@@ -298,6 +301,35 @@ class ShoppingListItemControllerTest {
 			.andExpect(status().isUnauthorized());
 		mockMvc.perform(delete("/api/shopping-list-items/{itemId}", tofu.getId()))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void 이름이_같은_시세가_있으면_목록과_담기_응답에_시세를_주고_없으면_null을_준다() throws Exception {
+		em.persist(MarketPrice.builder()
+			.itemName("양파")
+			.kindName("양파")
+			.unit("1kg")
+			.price(3450)
+			.weekAgoPrice(3600)
+			.surveyDate(LocalDate.of(2026, 11, 10))
+			.build());
+		ShoppingListItem tofu = item(fridge, "두부", null);
+		ShoppingListItem onion = item(fridge, "양파", null);
+
+		getItems(ownerToken)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items[0].id").value(onion.getId()))
+			.andExpect(jsonPath("$.data.items[0].marketPrice.price").value(3450))
+			.andExpect(jsonPath("$.data.items[0].marketPrice.unit").value("1kg"))
+			.andExpect(jsonPath("$.data.items[0].marketPrice.kindName").value("양파"))
+			.andExpect(jsonPath("$.data.items[0].marketPrice.surveyDate").value("2026-11-10"))
+			.andExpect(jsonPath("$.data.items[0].marketPrice.weekAgoPrice").value(3600))
+			.andExpect(jsonPath("$.data.items[1].id").value(tofu.getId()))
+			.andExpect(jsonPath("$.data.items[1].marketPrice").doesNotExist());
+
+		add(memberToken, "{\"name\": \"양파\"}")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.marketPrice.price").value(3450));
 	}
 
 	private ShoppingListItem item(Fridge target, String name, Recipe recipe) {
