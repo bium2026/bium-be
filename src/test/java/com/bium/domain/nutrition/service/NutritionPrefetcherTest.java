@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bium.global.exception.BusinessException;
@@ -20,6 +21,11 @@ import com.bium.global.exception.ErrorCode;
 class NutritionPrefetcherTest {
 
 	private final FoodNutritionLookup lookup = mock(FoodNutritionLookup.class);
+
+	@BeforeEach
+	void setUp() {
+		given(lookup.canSearch()).willReturn(true);
+	}
 
 	@Test
 	void 넘긴_이름을_하나씩_찾는다() {
@@ -71,6 +77,17 @@ class NutritionPrefetcherTest {
 		prefetcher.prefetch(List.of("두부"));
 
 		assertThat(executor.tasks).hasSize(1);
+	}
+
+	@Test
+	void 식약처_키가_없으면_작업을_넣지_않는다() {
+		QueuedExecutor executor = new QueuedExecutor();
+		NutritionPrefetcher prefetcher = new NutritionPrefetcher(lookup, executor);
+		given(lookup.canSearch()).willReturn(false);
+
+		prefetcher.prefetch(List.of("두부"));
+
+		assertThat(executor.tasks).isEmpty();
 	}
 
 	private static class QueuedExecutor implements Executor {

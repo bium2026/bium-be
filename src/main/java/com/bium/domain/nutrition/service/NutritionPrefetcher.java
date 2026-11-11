@@ -46,6 +46,10 @@ public class NutritionPrefetcher {
 	}
 
 	public void prefetch(Collection<String> searchNames) {
+		// 키가 없으면 모두 실패하므로 작업을 넣지 않는다. 요약을 다시 부를 때마다 실패 로그가 쌓이지 않게 한다
+		if (!foodNutritionLookup.canSearch()) {
+			return;
+		}
 		List<String> names = searchNames.stream()
 			.distinct()
 			.filter(inFlight::add)

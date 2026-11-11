@@ -59,6 +59,11 @@ public class FoodNutritionLookup {
 		return SEARCH_ALIASES.getOrDefault(compact, compact);
 	}
 
+	// 식약처 키가 없으면 찾아도 실패하므로 부르는 쪽이 미리 건너뛸 수 있게 알려 준다
+	public boolean canSearch() {
+		return foodNutritionClient.isConfigured();
+	}
+
 	/**
 	 * 저장된 결과 중 다시 찾을 필요가 없는 것만 검색어별로 준다. 식약처는 부르지 않는다.
 	 * MySQL은 영문 대소문자를 가리지 않고 같은 행으로 찾으므로, 돌려주는 표도 대소문자를 가리지 않는다.
