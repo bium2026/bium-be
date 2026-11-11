@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.List;
 
@@ -53,7 +55,7 @@ class FoodNutritionClientTest {
 				"FOOD_NM_KR=%EB%91%90%EB%B6%80"))
 			.andRespond(withSuccess(success("[]"), MediaType.APPLICATION_JSON));
 
-		client.searchByName("두부");
+		client.searchByName("두부", 1).foods();
 
 		server.verify();
 	}
@@ -69,7 +71,7 @@ class FoodNutritionClientTest {
 			]
 			"""), MediaType.APPLICATION_JSON));
 
-		List<Food> foods = client.searchByName("두부");
+		List<Food> foods = client.searchByName("두부", 1).foods();
 
 		assertThat(foods).hasSize(2);
 		Food tofu = foods.get(0);
@@ -98,7 +100,7 @@ class FoodNutritionClientTest {
 			]
 			"""), MediaType.APPLICATION_JSON));
 
-		List<Food> foods = client.searchByName("우유");
+		List<Food> foods = client.searchByName("우유", 1).foods();
 
 		assertThat(foods).extracting(Food::baseAmountG)
 			.usingElementComparator(BigDecimal::compareTo)
@@ -114,8 +116,8 @@ class FoodNutritionClientTest {
 			{"item": [{"FOOD_CD": "R1", "FOOD_NM_KR": "두부", "AMT_NUM1": "84"}]}
 			"""), MediaType.APPLICATION_JSON));
 
-		assertThat(client.searchByName("두부")).extracting(Food::foodName).containsExactly("두부");
-		assertThat(client.searchByName("두부")).extracting(Food::foodName).containsExactly("두부");
+		assertThat(client.searchByName("두부", 1).foods()).extracting(Food::foodName).containsExactly("두부");
+		assertThat(client.searchByName("두부", 1).foods()).extracting(Food::foodName).containsExactly("두부");
 	}
 
 	@Test
@@ -128,7 +130,7 @@ class FoodNutritionClientTest {
 			]
 			"""), MediaType.APPLICATION_JSON));
 
-		assertThat(client.searchByName("두부")).extracting(Food::foodCode).containsExactly("R3");
+		assertThat(client.searchByName("두부", 1).foods()).extracting(Food::foodCode).containsExactly("R3");
 	}
 
 	@Test
@@ -141,8 +143,8 @@ class FoodNutritionClientTest {
 			{"header": {"resultCode": "03", "resultMsg": "NODATA_ERROR"}}
 			""", MediaType.APPLICATION_JSON));
 
-		assertThat(client.searchByName("없는식품")).isEmpty();
-		assertThat(client.searchByName("없는식품")).isEmpty();
+		assertThat(client.searchByName("없는식품", 1).foods()).isEmpty();
+		assertThat(client.searchByName("없는식품", 1).foods()).isEmpty();
 	}
 
 	@Test
@@ -186,14 +188,35 @@ class FoodNutritionClientTest {
 	void 서비스_키가_없으면_부르지_않고_실패한다() {
 		FoodNutritionClient clientWithoutKey = new FoodNutritionClient(RestClient.create(BASE_URL), properties(""));
 
-		assertThatThrownBy(() -> clientWithoutKey.searchByName("두부"))
+		assertThatThrownBy(() -> clientWithoutKey.searchByName("두부", 1).foods())
 			.isInstanceOf(BusinessException.class)
 			.extracting("errorCode")
 			.isEqualTo(ErrorCode.NUTRITION_FETCH_FAILED);
 	}
 
+	@Test
+	void 전체_결과_수로_다음_페이지가_있는지_알려_준다() {
+		server.expect(requestTo(startsWith(ENDPOINT)))
+			.andExpect(request -> assertThat(request.getURI().getRawQuery()).contains("pageNo=2"))
+			.andRespond(withSuccess(page(250), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(startsWith(ENDPOINT)))
+			.andExpect(request -> assertThat(request.getURI().getRawQuery()).contains("pageNo=3"))
+			.andRespond(withSuccess(page(250), MediaType.APPLICATION_JSON));
+
+		assertThat(client.searchByName("두부", 2).hasNext()).isTrue();
+		assertThat(client.searchByName("두부", 3).hasNext()).isFalse();
+		server.verify();
+	}
+
+	@Test
+	void 타임아웃은_영양_정보_조회_실패로_처리한다() {
+		server.expect(requestTo(startsWith(ENDPOINT))).andRespond(withException(new SocketTimeoutException("Read timed out")));
+
+		assertFetchFailed();
+	}
+
 	private void assertFetchFailed() {
-		assertThatThrownBy(() -> client.searchByName("두부"))
+		assertThatThrownBy(() -> client.searchByName("두부", 1).foods())
 			.isInstanceOf(BusinessException.class)
 			.extracting("errorCode")
 			.isEqualTo(ErrorCode.NUTRITION_FETCH_FAILED);
@@ -204,6 +227,13 @@ class FoodNutritionClientTest {
 			{"header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
 			 "body": {"pageNo": 1, "totalCount": 1, "numOfRows": 100, "items": %s}}
 			""".formatted(items);
+	}
+
+	private static String page(int totalCount) {
+		return """
+			{"header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
+			 "body": {"pageNo": 1, "totalCount": %d, "numOfRows": 100, "items": []}}
+			""".formatted(totalCount);
 	}
 
 	private static FoodNutritionProperties properties(String serviceKey) {

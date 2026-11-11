@@ -1,8 +1,10 @@
 package com.bium.domain.nutrition.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -40,6 +42,7 @@ import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 import com.bium.global.nutrition.FoodNutritionClient;
 import com.bium.global.nutrition.FoodNutritionClient.Food;
+import com.bium.global.nutrition.FoodNutritionClient.SearchPage;
 
 import jakarta.persistence.EntityManager;
 
@@ -81,7 +84,7 @@ class NutritionControllerTest {
 	@Test
 	void 도감에_없는_재료는_재료_이름으로_찾아_100g당_영양_정보를_준다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of(
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage(
 			food("D1", "두부조림", "120", "8", "7", "6"),
 			food("R2", "두부", "84", "1.8", "9.3", "4.6")));
 
@@ -104,31 +107,31 @@ class NutritionControllerTest {
 			.defaultStorage(StorageType.FRIDGE)
 			.build());
 		FridgeItem tofu = saveItem("엄마가 준 두부", catalog);
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
 
 		getNutrition(tofu.getId(), memberToken)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.foodName").value("두부"));
 
-		verify(foodNutritionClient).searchByName("두부");
+		verify(foodNutritionClient).searchByName("두부", 1);
 	}
 
 	@Test
 	void 한_번_찾은_이름은_다른_재료라도_다시_부르지_않는다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
 		FridgeItem otherTofu = saveItem("두부", null);
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
 
 		getNutrition(tofu.getId(), memberToken).andExpect(jsonPath("$.data.foodName").value("두부"));
 		getNutrition(otherTofu.getId(), memberToken).andExpect(jsonPath("$.data.foodName").value("두부"));
 
-		verify(foodNutritionClient, times(1)).searchByName("두부");
+		verify(foodNutritionClient, times(1)).searchByName("두부", 1);
 	}
 
 	@Test
 	void 맞는_식품이_없으면_data를_null로_주고_결과를_저장해_다시_부르지_않는다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of(food("D1", "두부조림", "120", "8", "7", "6")));
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage(food("D1", "두부조림", "120", "8", "7", "6")));
 
 		getNutrition(tofu.getId(), memberToken)
 			.andExpect(status().isOk())
@@ -138,7 +141,7 @@ class NutritionControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data").isEmpty());
 
-		verify(foodNutritionClient, times(1)).searchByName("두부");
+		verify(foodNutritionClient, times(1)).searchByName("두부", 1);
 		assertThat(foodNutritionRepository.findBySearchName("두부"))
 			.hasValueSatisfying(saved -> assertThat(saved.isFound()).isFalse());
 	}
@@ -146,24 +149,24 @@ class NutritionControllerTest {
 	@Test
 	void 맞는_식품이_없던_이름은_30일이_지나면_다시_찾는다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of());
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage());
 		getNutrition(tofu.getId(), memberToken).andExpect(jsonPath("$.data").isEmpty());
 
 		em.createQuery("update FoodNutrition set fetchedAt = :fetchedAt where searchName = '두부'")
 			.setParameter("fetchedAt", LocalDateTime.now(clock).minusDays(31))
 			.executeUpdate();
 		em.clear();
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
 
 		getNutrition(tofu.getId(), memberToken).andExpect(jsonPath("$.data.foodName").value("두부"));
 
-		verify(foodNutritionClient, times(2)).searchByName("두부");
+		verify(foodNutritionClient, times(2)).searchByName("두부", 1);
 	}
 
 	@Test
 	void 맞는_식품을_찾은_이름은_30일이_지나도_다시_부르지_않는다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
-		given(foodNutritionClient.searchByName("두부")).willReturn(List.of(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage(food("R1", "두부", "84", "1.8", "9.3", "4.6")));
 		getNutrition(tofu.getId(), memberToken).andExpect(jsonPath("$.data.foodName").value("두부"));
 
 		em.createQuery("update FoodNutrition set fetchedAt = :fetchedAt where searchName = '두부'")
@@ -173,13 +176,73 @@ class NutritionControllerTest {
 
 		getNutrition(tofu.getId(), memberToken).andExpect(jsonPath("$.data.foodName").value("두부"));
 
-		verify(foodNutritionClient, times(1)).searchByName("두부");
+		verify(foodNutritionClient, times(1)).searchByName("두부", 1);
+	}
+
+	@Test
+	void 첫_페이지에_이름이_같은_식품이_없고_결과가_더_있으면_다음_페이지에서_찾는다() throws Exception {
+		FridgeItem tofu = saveItem("두부", null);
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(new SearchPage(List.of(
+			food("D1", "두부조림", "120", "8", "7", "6"),
+			food("R2", "두부_부침용", "97", "2", "10", "6")), true));
+		given(foodNutritionClient.searchByName("두부", 2)).willReturn(new SearchPage(List.of(
+			food("R3", "두부", "84", "1.8", "9.3", "4.6")), true));
+
+		getNutrition(tofu.getId(), memberToken)
+			.andExpect(jsonPath("$.data.foodName").value("두부"))
+			.andExpect(jsonPath("$.data.caloriesKcal").value(84.0));
+
+		verify(foodNutritionClient, never()).searchByName("두부", 3);
+	}
+
+	@Test
+	void 결과가_많아도_세_페이지까지만_보고_그_안에서_고른다() throws Exception {
+		FridgeItem tofu = saveItem("두부", null);
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(new SearchPage(List.of(
+			food("R1", "두부_부침용", "97", "2", "10", "6")), true));
+		given(foodNutritionClient.searchByName("두부", 2)).willReturn(new SearchPage(List.of(
+			food("D2", "두부조림", "120", "8", "7", "6")), true));
+		given(foodNutritionClient.searchByName("두부", 3)).willReturn(new SearchPage(List.of(
+			food("D3", "두부전골", "60", "4", "5", "3")), true));
+
+		getNutrition(tofu.getId(), memberToken)
+			.andExpect(jsonPath("$.data.foodName").value("두부_부침용"));
+
+		verify(foodNutritionClient, never()).searchByName("두부", 4);
+	}
+
+	@Test
+	void 띄어쓰기를_지운_이름으로_찾는다() throws Exception {
+		FridgeItem tomato = saveItem(" 방울 토마토 ", null);
+		given(foodNutritionClient.searchByName("방울토마토", 1)).willReturn(lastPage(
+			food("R1", "방울토마토", "18", "3.9", "0.9", "0.2")));
+
+		getNutrition(tomato.getId(), memberToken)
+			.andExpect(jsonPath("$.data.foodName").value("방울토마토"));
+	}
+
+	@Test
+	void 맞는_식품이_없던_이름을_다시_찾다_실패하면_저장된_결과로_null을_준다() throws Exception {
+		FridgeItem tofu = saveItem("두부", null);
+		given(foodNutritionClient.searchByName("두부", 1)).willReturn(lastPage());
+		getNutrition(tofu.getId(), memberToken).andExpect(jsonPath("$.data").isEmpty());
+
+		em.createQuery("update FoodNutrition set fetchedAt = :fetchedAt where searchName = '두부'")
+			.setParameter("fetchedAt", LocalDateTime.now(clock).minusDays(31))
+			.executeUpdate();
+		em.clear();
+		given(foodNutritionClient.searchByName("두부", 1))
+			.willThrow(new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED));
+
+		getNutrition(tofu.getId(), memberToken)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data").isEmpty());
 	}
 
 	@Test
 	void 식약처_호출이_실패하면_502를_주고_저장하지_않는다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
-		given(foodNutritionClient.searchByName(anyString()))
+		given(foodNutritionClient.searchByName(anyString(), anyInt()))
 			.willThrow(new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED));
 
 		getNutrition(tofu.getId(), memberToken)
@@ -240,6 +303,10 @@ class NutritionControllerTest {
 			.build();
 		em.persist(item);
 		return item;
+	}
+
+	private static SearchPage lastPage(Food... foods) {
+		return new SearchPage(List.of(foods), false);
 	}
 
 	private static Food food(String foodCode, String foodName, String calories, String carbohydrate, String protein,
