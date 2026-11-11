@@ -17,6 +17,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +30,7 @@ import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 import com.bium.global.nutrition.FoodNutritionClient.Food;
 
+@ExtendWith(OutputCaptureExtension.class)
 class FoodNutritionClientTest {
 
 	private static final String BASE_URL = "https://nutrition.test/1471000/FoodNtrCpntDbInfo03";
@@ -185,13 +189,26 @@ class FoodNutritionClientTest {
 	}
 
 	@Test
-	void 서비스_키가_없으면_부르지_않고_실패한다() {
+	void 서비스_키가_없으면_부르지_않고_실패한다(CapturedOutput output) {
 		FoodNutritionClient clientWithoutKey = new FoodNutritionClient(RestClient.create(BASE_URL), properties(""));
 
-		assertThatThrownBy(() -> clientWithoutKey.searchByName("두부", 1).foods())
-			.isInstanceOf(BusinessException.class)
-			.extracting("errorCode")
-			.isEqualTo(ErrorCode.NUTRITION_FETCH_FAILED);
+		assertThat(clientWithoutKey.isConfigured()).isFalse();
+		for (int i = 0; i < 2; i++) {
+			assertThatThrownBy(() -> clientWithoutKey.searchByName("두부", 1))
+				.isInstanceOf(BusinessException.class)
+				.extracting("errorCode")
+				.isEqualTo(ErrorCode.NUTRITION_FETCH_FAILED);
+		}
+		// 키가 없다는 로그는 요청마다 남기지 않는다
+		assertThat(output).doesNotContain("NUTRITION_API_KEY");
+	}
+
+	@Test
+	void 서비스_키가_없으면_서버를_켤_때_한_번만_알린다(CapturedOutput output) {
+		new FoodNutritionConfig().foodNutritionClient(properties(""));
+		new FoodNutritionConfig().foodNutritionClient(properties("test-key"));
+
+		assertThat(output.getOut().split("NUTRITION_API_KEY 환경변수가 설정되지 않았습니다", -1)).hasSize(2);
 	}
 
 	@Test

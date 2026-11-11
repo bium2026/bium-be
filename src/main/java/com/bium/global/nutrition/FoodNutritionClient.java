@@ -49,8 +49,8 @@ public class FoodNutritionClient {
 	 * 호출이 실패하면(키 없음, 타임아웃, 호출 한도 초과, 서버 오류) NUTRITION_FETCH_FAILED를 던진다.
 	 */
 	public SearchPage searchByName(String name, int pageNo) {
-		if (properties.serviceKey() == null || properties.serviceKey().isBlank()) {
-			log.error("NUTRITION_API_KEY 환경변수가 설정되지 않았습니다.");
+		// 키가 없는 것은 설정 문제라 요청마다 로그를 남기지 않는다. 서버를 켤 때 FoodNutritionConfig가 한 번 남긴다
+		if (!isConfigured()) {
 			throw new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED);
 		}
 
@@ -73,6 +73,10 @@ public class FoodNutritionClient {
 		JsonNode body = response.path("body");
 		long totalCount = body.path("totalCount").asLong(0);
 		return new SearchPage(toFoods(body.path("items")), (long)pageNo * properties.pageSize() < totalCount);
+	}
+
+	public boolean isConfigured() {
+		return properties.serviceKey() != null && !properties.serviceKey().isBlank();
 	}
 
 	// 서비스 키에는 +, /, = 같은 글자가 있어서 템플릿 변수로 넘겨 전부 인코딩되게 한다. 그래서 디코딩된 키를 넣어야 한다
