@@ -19,10 +19,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.bium.domain.fridge.entity.Fridge;
-import com.bium.domain.fridge.service.FridgeAccessValidator;
-import com.bium.domain.ingredient.entity.FridgeItem;
-import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.nutrition.entity.FoodNutrition;
 import com.bium.domain.nutrition.repository.FoodNutritionRepository;
 import com.bium.global.nutrition.FoodNutritionClient;
@@ -33,24 +29,15 @@ import com.bium.global.nutrition.FoodNutritionClient.SearchPage;
  * 첫 페이지가 오래 걸리면 다음 페이지를 받지 않아 재료 수정 모달이 너무 오래 기다리지 않는지 확인한다.
  * 시간을 직접 움직이려고 스프링 없이 만든다.
  */
-class NutritionServiceSearchTimeTest {
+class FoodNutritionLookupSearchTimeTest {
 
-	private static final Long USER_ID = 1L;
-	private static final Long ITEM_ID = 10L;
-
-	private final FridgeItemRepository fridgeItemRepository = mock(FridgeItemRepository.class);
-	private final FridgeAccessValidator fridgeAccessValidator = mock(FridgeAccessValidator.class);
 	private final FoodNutritionRepository foodNutritionRepository = mock(FoodNutritionRepository.class);
 	private final FoodNutritionClient foodNutritionClient = mock(FoodNutritionClient.class);
 	private final MutableClock clock = new MutableClock();
-	private final NutritionService nutritionService = new NutritionService(fridgeItemRepository, fridgeAccessValidator,
-		foodNutritionRepository, foodNutritionClient, clock);
+	private final FoodNutritionLookup lookup = new FoodNutritionLookup(foodNutritionRepository, foodNutritionClient, clock);
 
 	@BeforeEach
 	void setUp() {
-		FridgeItem tofu = FridgeItem.builder().fridge(new Fridge("우리 냉장고")).name("두부").quantity(BigDecimal.ONE).build();
-		given(fridgeItemRepository.findWithCatalogById(ITEM_ID)).willReturn(Optional.of(tofu));
-		given(fridgeAccessValidator.isMember(any(), any())).willReturn(true);
 		given(foodNutritionRepository.findBySearchName("두부")).willReturn(Optional.empty());
 		given(foodNutritionRepository.save(any(FoodNutrition.class))).willAnswer(invocation -> invocation.getArgument(0));
 	}
@@ -62,7 +49,7 @@ class NutritionServiceSearchTimeTest {
 			return new SearchPage(List.of(food("두부_부침용")), true);
 		});
 
-		assertThat(nutritionService.getItemNutrition(USER_ID, ITEM_ID).foodName()).isEqualTo("두부_부침용");
+		assertThat(lookup.findOrFetch("두부").getFoodName()).isEqualTo("두부_부침용");
 		verify(foodNutritionClient, never()).searchByName("두부", 2);
 	}
 
@@ -74,7 +61,7 @@ class NutritionServiceSearchTimeTest {
 		});
 		given(foodNutritionClient.searchByName("두부", 2)).willReturn(new SearchPage(List.of(food("두부")), false));
 
-		assertThat(nutritionService.getItemNutrition(USER_ID, ITEM_ID).foodName()).isEqualTo("두부");
+		assertThat(lookup.findOrFetch("두부").getFoodName()).isEqualTo("두부");
 	}
 
 	private static Food food(String name) {
