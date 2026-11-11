@@ -67,6 +67,13 @@ Table ingredient_catalog {
   indexes { (owner_key, name) [unique] }
 }
 
+Table ingredient_favorites {   // 도감 즐겨찾기 (사용자별). 도감 목록에서 위쪽에 보여 준다
+  user_id    bigint [ref: > users.id, not null]
+  catalog_id bigint [ref: > ingredient_catalog.id, not null]
+  created_at datetime
+  indexes { (user_id, catalog_id) [pk] }
+}
+
 Table nutrition_info {
   catalog_id      bigint [pk, ref: - ingredient_catalog.id]
   food_code       varchar(30) [note: '식품영양성분 DB 식품코드']
