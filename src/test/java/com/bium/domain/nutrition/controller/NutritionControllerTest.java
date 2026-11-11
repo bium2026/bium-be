@@ -186,29 +186,25 @@ class NutritionControllerTest {
 			food("D1", "두부조림", "120", "8", "7", "6"),
 			food("R2", "두부_부침용", "97", "2", "10", "6")), true));
 		given(foodNutritionClient.searchByName("두부", 2)).willReturn(new SearchPage(List.of(
-			food("R3", "두부", "84", "1.8", "9.3", "4.6")), true));
+			food("R3", "두부", "84", "1.8", "9.3", "4.6")), false));
 
 		getNutrition(tofu.getId(), memberToken)
 			.andExpect(jsonPath("$.data.foodName").value("두부"))
 			.andExpect(jsonPath("$.data.caloriesKcal").value(84.0));
-
-		verify(foodNutritionClient, never()).searchByName("두부", 3);
 	}
 
 	@Test
-	void 결과가_많아도_세_페이지까지만_보고_그_안에서_고른다() throws Exception {
+	void 결과가_많아도_두_페이지까지만_보고_그_안에서_고른다() throws Exception {
 		FridgeItem tofu = saveItem("두부", null);
 		given(foodNutritionClient.searchByName("두부", 1)).willReturn(new SearchPage(List.of(
 			food("R1", "두부_부침용", "97", "2", "10", "6")), true));
 		given(foodNutritionClient.searchByName("두부", 2)).willReturn(new SearchPage(List.of(
 			food("D2", "두부조림", "120", "8", "7", "6")), true));
-		given(foodNutritionClient.searchByName("두부", 3)).willReturn(new SearchPage(List.of(
-			food("D3", "두부전골", "60", "4", "5", "3")), true));
 
 		getNutrition(tofu.getId(), memberToken)
 			.andExpect(jsonPath("$.data.foodName").value("두부_부침용"));
 
-		verify(foodNutritionClient, never()).searchByName("두부", 4);
+		verify(foodNutritionClient, never()).searchByName("두부", 3);
 	}
 
 	@Test
@@ -219,6 +215,16 @@ class NutritionControllerTest {
 
 		getNutrition(tomato.getId(), memberToken)
 			.andExpect(jsonPath("$.data.foodName").value("방울토마토"));
+	}
+
+	@Test
+	void 식약처가_다른_이름을_쓰는_재료는_식약처_이름으로_찾는다() throws Exception {
+		FridgeItem egg = saveItem("계란", null);
+		given(foodNutritionClient.searchByName("달걀", 1)).willReturn(lastPage(
+			food("R1", "달걀, 생것", "140", "1.07", "12.86", "8.51")));
+
+		getNutrition(egg.getId(), memberToken)
+			.andExpect(jsonPath("$.data.foodName").value("달걀, 생것"));
 	}
 
 	@Test

@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -34,9 +35,11 @@ import lombok.RequiredArgsConstructor;
 public class NutritionService {
 
 	private static final Duration NOT_FOUND_RETRY_INTERVAL = Duration.ofDays(30);
-	// 한 번 찾을 때 식약처를 부르는 최대 횟수. 재료 수정 모달이 기다리는 시간이라 적게 둔다
-	private static final int MAX_SEARCH_PAGES = 3;
+	// 한 번 찾을 때 식약처를 부르는 최대 횟수. 마지막 페이지는 4~6초 걸리고 재료 수정 모달이 기다리는 시간이라 적게 둔다
+	private static final int MAX_SEARCH_PAGES = 2;
 	private static final Pattern SPACES = Pattern.compile("\\s+");
+	// 식약처가 다른 이름을 쓰는 흔한 재료. 검색어를 식약처 이름으로 바꿔 찾는다
+	private static final Map<String, String> SEARCH_ALIASES = Map.of("계란", "달걀");
 
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
@@ -60,7 +63,8 @@ public class NutritionService {
 	 */
 	private String searchName(FridgeItem item) {
 		String name = item.getCatalog() == null ? item.getName() : item.getCatalog().getName();
-		return SPACES.matcher(name).replaceAll("");
+		String compact = SPACES.matcher(name).replaceAll("");
+		return SEARCH_ALIASES.getOrDefault(compact, compact);
 	}
 
 	private FoodNutrition findOrFetch(String searchName) {
