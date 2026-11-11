@@ -67,15 +67,18 @@ Table ingredient_catalog {
   indexes { (owner_key, name) [unique] }
 }
 
-Table nutrition_info {
-  catalog_id      bigint [pk, ref: - ingredient_catalog.id]
-  food_code       varchar(30) [note: '식품영양성분 DB 식품코드']
-  base_amount_g   decimal(7,2) [default: 100]
+Table food_nutrition {
+  id              bigint [pk, increment]
+  search_name     varchar(50) [unique, not null, note: '식약처에 보낸 검색어. 도감 재료는 도감 이름, 나머지는 재료 이름']
+  food_code       varchar(30) [note: '식품영양성분 DB 식품코드. NULL=맞는 식품 없음']
+  food_name       varchar(100) [note: '식약처에서 맞춘 식품 이름']
+  base_amount_g   decimal(7,2) [note: '영양 값의 기준량(보통 100)']
   calories_kcal   decimal(7,2)
   carbohydrate_g  decimal(7,2)
   protein_g       decimal(7,2)
   fat_g           decimal(7,2)
-  fetched_at      datetime
+  fetched_at      datetime [not null]
+  Note: '재료 이름마다 식약처 조회 결과를 저장해 다시 부르지 않는다. 도감 재료와 영수증 재료가 같은 이름이면 같은 행을 쓴다'
 }
 
 // ───────── 냉장고 속 재료 ─────────

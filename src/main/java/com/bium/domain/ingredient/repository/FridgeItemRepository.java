@@ -30,6 +30,11 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 
 	Optional<FridgeItem> findByIdAndDeletedAtIsNull(Long id);
 
+	// 영양 정보는 도감 이름으로 찾고 냉장고 멤버인지 확인해서 둘을 함께 읽는다. 트랜잭션 없이 불려서 나중에 지연 로딩할 수 없다
+	@Query("select i from FridgeItem i join fetch i.fridge left join fetch i.catalog"
+		+ " where i.id = :id and i.deletedAt is null")
+	Optional<FridgeItem> findWithCatalogById(Long id);
+
 	// 여러 재료를 함께 고칠 때 MySQL이 행을 잠그는 순서를 요청끼리 같게 하려고 id 순서로 가져온다
 	@Query("select i from FridgeItem i where i.id in :ids order by i.id")
 	List<FridgeItem> findAllByIdInOrderById(Collection<Long> ids);
