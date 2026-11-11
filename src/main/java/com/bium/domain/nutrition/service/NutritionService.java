@@ -3,7 +3,10 @@ package com.bium.domain.nutrition.service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 import com.bium.global.nutrition.FoodNutritionClient;
 import com.bium.global.nutrition.FoodNutritionClient.Food;
+import com.bium.global.nutrition.FoodNutritionClient.SearchPage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +34,9 @@ import lombok.RequiredArgsConstructor;
 public class NutritionService {
 
 	private static final Duration NOT_FOUND_RETRY_INTERVAL = Duration.ofDays(30);
+	// 한 번 찾을 때 식약처를 부르는 최대 횟수. 재료 수정 모달이 기다리는 시간이라 적게 둔다
+	private static final int MAX_SEARCH_PAGES = 3;
+	private static final Pattern SPACES = Pattern.compile("\\s+");
 
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
@@ -47,10 +54,13 @@ public class NutritionService {
 		return nutrition.hasAnyValue() ? NutritionResponse.from(nutrition) : null;
 	}
 
-	// 도감 재료는 냉장고에서 이름을 고쳐도 같은 식품을 보여 주도록 도감 이름으로 찾는다
+	/**
+	 * 도감 재료는 냉장고에서 이름을 고쳐도 같은 식품을 보여 주도록 도감 이름으로 찾는다.
+	 * 식약처 식품 이름에는 띄어쓰기가 거의 없고 검색은 띄어쓰기까지 맞아야 해서, 띄어쓰기를 지운 이름으로 찾고 저장한다.
+	 */
 	private String searchName(FridgeItem item) {
 		String name = item.getCatalog() == null ? item.getName() : item.getCatalog().getName();
-		return name.strip();
+		return SPACES.matcher(name).replaceAll("");
 	}
 
 	private FoodNutrition findOrFetch(String searchName) {
@@ -60,8 +70,17 @@ public class NutritionService {
 			return saved.get();
 		}
 
-		// 호출이 실패하면 예외가 그대로 나가서 아무것도 저장하지 않는다. 다음 요청 때 다시 찾는다
-		Food food = FoodMatcher.match(searchName, foodNutritionClient.searchByName(searchName)).orElse(null);
+		Food food;
+		try {
+			food = searchBestMatch(searchName);
+		} catch (BusinessException exception) {
+			// 호출이 실패하면 아무것도 저장하지 않고 다음 요청 때 다시 찾는다.
+			// 30일이 지나 다시 찾던 "못 찾음" 결과가 있으면 오류 대신 그 결과를 그대로 준다
+			if (saved.isPresent()) {
+				return saved.get();
+			}
+			throw exception;
+		}
 		FoodNutrition nutrition = saved.orElseGet(() -> new FoodNutrition(searchName));
 		nutrition.update(food, now);
 		try {
@@ -70,6 +89,22 @@ public class NutritionService {
 			// 같은 이름을 동시에 처음 찾으면 둘 다 저장하다 유니크 제약에 걸린다. 먼저 저장된 결과를 쓴다
 			return foodNutritionRepository.findBySearchName(searchName).orElseThrow(() -> exception);
 		}
+	}
+
+	/**
+	 * 검색은 이름 일부만 맞아도 오고 순서가 없어서, 이름이 같은 식품이 첫 페이지에 없을 수 있다.
+	 * 이름이 같은 식품이 나오거나 결과가 끝날 때까지 몇 페이지 더 받아 본 뒤 그 안에서 고른다.
+	 */
+	private Food searchBestMatch(String searchName) {
+		List<Food> foods = new ArrayList<>();
+		for (int pageNo = 1; pageNo <= MAX_SEARCH_PAGES; pageNo++) {
+			SearchPage page = foodNutritionClient.searchByName(searchName, pageNo);
+			foods.addAll(page.foods());
+			if (!page.hasNext() || FoodMatcher.hasExactMatch(searchName, page.foods())) {
+				break;
+			}
+		}
+		return FoodMatcher.match(searchName, foods).orElse(null);
 	}
 
 }

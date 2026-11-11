@@ -37,6 +37,14 @@ final class FoodMatcher {
 			.min(preference);
 	}
 
+	// 이름이 같은 식품이 있으면 다음 페이지를 더 받아 보지 않는다
+	static boolean hasExactMatch(String searchName, List<Food> foods) {
+		String target = normalize(searchName);
+		return foods.stream()
+			.filter(Food::hasAnyValue)
+			.anyMatch(food -> rank(target, food) == EXACT);
+	}
+
 	private static int rank(String target, Food food) {
 		String name = normalize(food.foodName());
 		if (name.equals(target)) {

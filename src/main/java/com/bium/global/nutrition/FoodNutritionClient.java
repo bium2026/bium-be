@@ -37,6 +37,7 @@ public class FoodNutritionClient {
 	// nutrition 표의 decimal(7,2)에 들어가는 가장 큰 값. 이보다 크면 잘못 들어간 값으로 보고 버린다
 	private static final BigDecimal MAX_AMOUNT = new BigDecimal("99999.99");
 	private static final int MAX_FOOD_CODE_LENGTH = 30;
+	private static final int MAX_LOGGED_BODY_LENGTH = 500;
 	// "100g", "100 g", "100mL"처럼 오는 기준량에서 숫자만 읽는다
 	private static final Pattern LEADING_NUMBER = Pattern.compile("^\\s*(\\d+(?:\\.\\d+)?)");
 
@@ -44,16 +45,16 @@ public class FoodNutritionClient {
 	private final FoodNutritionProperties properties;
 
 	/**
-	 * 이름에 검색어가 들어간 식품을 첫 페이지만큼 돌려준다. 결과가 없으면 빈 목록을 준다.
+	 * 이름에 검색어가 들어간 식품을 한 페이지(pageNo는 1부터) 돌려준다. 결과가 없으면 빈 페이지를 준다.
 	 * 호출이 실패하면(키 없음, 타임아웃, 호출 한도 초과, 서버 오류) NUTRITION_FETCH_FAILED를 던진다.
 	 */
-	public List<Food> searchByName(String name) {
+	public SearchPage searchByName(String name, int pageNo) {
 		if (properties.serviceKey() == null || properties.serviceKey().isBlank()) {
 			log.error("NUTRITION_API_KEY 환경변수가 설정되지 않았습니다.");
 			throw new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED);
 		}
 
-		JsonNode response = request(name);
+		JsonNode response = request(name, pageNo);
 		if (response == null) {
 			log.warn("식약처 영양성분 API가 빈 응답을 돌려줬습니다.");
 			throw new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED);
@@ -61,7 +62,7 @@ public class FoodNutritionClient {
 
 		String resultCode = response.path("header").path("resultCode").asString("");
 		if (NO_DATA.equals(resultCode)) {
-			return List.of();
+			return new SearchPage(List.of(), false);
 		}
 		if (!SUCCESS.equals(resultCode)) {
 			// 키가 등록되지 않았거나 호출 한도를 넘으면 header 대신 OpenAPI_ServiceResponse 형식으로 온다
@@ -69,17 +70,19 @@ public class FoodNutritionClient {
 				errorMessage(response));
 			throw new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED);
 		}
-		return toFoods(response.path("body").path("items"));
+		JsonNode body = response.path("body");
+		long totalCount = body.path("totalCount").asLong(0);
+		return new SearchPage(toFoods(body.path("items")), (long)pageNo * properties.pageSize() < totalCount);
 	}
 
 	// 서비스 키에는 +, /, = 같은 글자가 있어서 템플릿 변수로 넘겨 전부 인코딩되게 한다. 그래서 디코딩된 키를 넣어야 한다
-	private JsonNode request(String name) {
+	private JsonNode request(String name, int pageNo) {
 		try {
 			return restClient.get()
 				.uri(uriBuilder -> uriBuilder.path("/getFoodNtrCpntDbInq03")
 					.queryParam("serviceKey", "{serviceKey}")
 					.queryParam("type", "json")
-					.queryParam("pageNo", 1)
+					.queryParam("pageNo", pageNo)
 					.queryParam("numOfRows", properties.pageSize())
 					.queryParam("DB_CLASS_NM", "{dbClass}")
 					.queryParam("FOOD_NM_KR", "{name}")
@@ -87,16 +90,21 @@ public class FoodNutritionClient {
 				.retrieve()
 				.body(JsonNode.class);
 		} catch (RestClientResponseException exception) {
+			// 서버 오류 때 HTML 페이지 전체가 올 수 있어 앞부분만 남긴다
 			log.warn("식약처 영양성분 API 요청이 실패했습니다. status={}, body={}",
-				exception.getStatusCode().value(), exception.getResponseBodyAsString());
+				exception.getStatusCode().value(), abbreviate(exception.getResponseBodyAsString()));
 			throw new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED, exception);
 		} catch (RestClientException exception) {
-			// 바깥 예외의 메시지에는 서비스 키가 든 주소가 있어서 가장 안쪽 원인만 남긴다
+			// 요청 주소에 서비스 키가 들어 있어서, 주소가 메시지에 섞일 수 있는 바깥 예외 대신 가장 안쪽 원인만 남긴다
 			Throwable cause = exception.getMostSpecificCause();
 			log.warn("식약처 영양성분 API 호출 중 오류가 발생했습니다. error={}: {}", cause.getClass().getSimpleName(),
 				cause == exception ? "" : cause.getMessage());
 			throw new BusinessException(ErrorCode.NUTRITION_FETCH_FAILED);
 		}
+	}
+
+	private String abbreviate(String text) {
+		return text.length() <= MAX_LOGGED_BODY_LENGTH ? text : text.substring(0, MAX_LOGGED_BODY_LENGTH) + "...";
 	}
 
 	private String errorMessage(JsonNode response) {
@@ -181,6 +189,12 @@ public class FoodNutritionClient {
 
 	private String blankToNull(String value) {
 		return value.isBlank() ? null : value.strip();
+	}
+
+	/**
+	 * 검색 결과 한 페이지. hasNext는 전체 결과 수(totalCount)로 보아 다음 페이지가 있는지다.
+	 */
+	public record SearchPage(List<Food> foods, boolean hasNext) {
 	}
 
 	/**
