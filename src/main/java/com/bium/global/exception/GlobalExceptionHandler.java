@@ -1,5 +1,6 @@
 package com.bium.global.exception;
 
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			.map(FieldError::getDefaultMessage)
 			.orElse(ErrorCode.INVALID_INPUT.getMessage());
 		return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.INVALID_INPUT.name(), message));
+	}
+
+	// 주소나 쿼리 파라미터를 숫자·enum 같은 타입으로 바꾸지 못하면 다른 입력 오류와 같은 코드로 준다
+	@Override
+	protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException ex, HttpHeaders headers,
+		HttpStatusCode status, WebRequest request) {
+		return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.INVALID_INPUT));
 	}
 
 	// spring.servlet.multipart의 크기 제한을 넘은 사진
