@@ -44,6 +44,18 @@ kamis:
   # 장보기 목록 시세. 하루 한 번 저녁에 받는다
   collect-cron: ${KAMIS_COLLECT_CRON:0 0 18 * * *}
 
+nutrition-api:
+  # 공공데이터포털 식약처 식품영양성분 DB 서비스 키. 일반 인증키(Decoding) 값을 넣는다
+  service-key: ${NUTRITION_API_KEY:}
+  base-url: https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo03
+  # 이름 일부만 맞아도 오므로 한 번에 넉넉히 받아 그 안에서 맞는 식품을 고른다.
+  # 결과가 한 페이지보다 적으면(마지막 페이지) 응답에 4~6초 걸리고, 꽉 찬 페이지는 1~2초 걸린다.
+  # 흔한 재료도 결과가 300개를 넘지 않아서 500개씩 받아 대부분 한 번에 끝낸다
+  page-size: 500
+  connect-timeout: 2s
+  # 결과가 없거나 적은 검색도 4~6초 걸려서 그보다 넉넉히 둔다
+  read-timeout: 10s
+
 recipe:
   recommendation:
     # 사용자당 분당 추천 요청 수
