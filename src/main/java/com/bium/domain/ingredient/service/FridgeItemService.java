@@ -132,7 +132,7 @@ public class FridgeItemService {
 	}
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {
-		FridgeItem item = findAccessibleItem(userId, itemId);
+		FridgeItem item = lockAccessibleItem(userId, itemId);
 		validateVersion(item, request.version());
 		// 바뀐 값이 없어 UPDATE가 안 나가도 저장할 때 버전을 한 번 더 확인한다
 		entityManager.lock(item, LockModeType.OPTIMISTIC);
@@ -172,7 +172,7 @@ public class FridgeItemService {
 
 	// 기록을 남기기 위해 지우지 않고 삭제 시각만 적는다
 	public void delete(Long userId, Long itemId, Integer version) {
-		FridgeItem item = findAccessibleItem(userId, itemId);
+		FridgeItem item = lockAccessibleItem(userId, itemId);
 		validateVersion(item, version);
 		item.delete(LocalDateTime.now(clock));
 		// 활동 기록이 재료 행을 참조해서, 기록을 먼저 넣으면 MySQL에서 동시에 지우는 두 요청이 서로 기다리다 막힌다.
@@ -183,6 +183,8 @@ public class FridgeItemService {
 
 	// 유통기한 지난 재료처럼 여러 재료를 한 번에 지운다. 하나라도 지울 수 없으면 아무것도 지우지 않는다
 	public FridgeItemBulkDeleteResponse deleteAll(Long userId, Long fridgeId, FridgeItemBulkDeleteRequest request) {
+		// 하나씩 지울 때처럼 냉장고부터 잠가 옮기기 요청과 잠그는 순서를 맞춘다(lockAccessibleItem 참고)
+		lockFridge(fridgeId);
 		fridgeAccessValidator.validateMember(fridgeId, userId);
 		// 같은 재료를 두 번 보내도 한 번만 지운다
 		Map<Long, Integer> versions = new LinkedHashMap<>();
@@ -212,10 +214,16 @@ public class FridgeItemService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 	}
 
+	// 재료를 고치거나 지우면 활동 기록을 넣으며 MySQL이 외래 키를 확인하려고 냉장고 행의 잠금을 기다린다.
+	// 재료 행을 먼저 잡은 채 냉장고를 기다리면, 냉장고 → 칸의 재료 순서로 잠그는 옮기기 요청과 서로 기다리다
+	// 교착 상태로 한쪽이 실패한다. 그래서 옮기기와 같은 순서(냉장고 → 재료)로 잠그고, 잠그며 다시 읽는다.
 	// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
-	private FridgeItem findAccessibleItem(Long userId, Long itemId) {
-		return fridgeItemRepository.findByIdAndDeletedAtIsNull(itemId)
-			.filter(item -> fridgeAccessValidator.isMember(item.getFridge().getId(), userId))
+	private FridgeItem lockAccessibleItem(Long userId, Long itemId) {
+		Long fridgeId = fridgeItemRepository.findFridgeIdById(itemId)
+			.filter(id -> fridgeAccessValidator.isMember(id, userId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
+		lockFridge(fridgeId);
+		return fridgeItemRepository.findByIdForUpdate(itemId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
 	}
 

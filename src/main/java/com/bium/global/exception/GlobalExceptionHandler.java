@@ -2,6 +2,7 @@ package com.bium.global.exception;
 
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -35,6 +36,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(OptimisticLockingFailureException.class)
 	public ResponseEntity<ApiResponse<Void>> handleOptimisticLockingFailureException(
 		OptimisticLockingFailureException e) {
+		ErrorCode errorCode = ErrorCode.CONCURRENT_MODIFICATION;
+		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
+	}
+
+	// 잠금을 기다리다 시간이 다 되거나 교착 상태로 DB가 요청을 되돌리면 다른 멤버의 요청과 겹친 것이라,
+	// 500 대신 동시 수정과 같은 409로 알려 화면이 새로 불러오게 한다
+	@ExceptionHandler(PessimisticLockingFailureException.class)
+	public ResponseEntity<ApiResponse<Void>> handlePessimisticLockingFailureException(
+		PessimisticLockingFailureException e) {
+		log.warn("잠금을 얻지 못해 요청을 되돌렸습니다.", e);
 		ErrorCode errorCode = ErrorCode.CONCURRENT_MODIFICATION;
 		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
 	}

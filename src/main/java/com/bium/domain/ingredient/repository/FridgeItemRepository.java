@@ -28,8 +28,6 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 		+ " and i.deletedAt is null order by i.sortOrder, i.id")
 	List<FridgeItem> findAllInSectionForUpdate(Long fridgeId, StorageType storage, SectionType section);
 
-	Optional<FridgeItem> findByIdAndDeletedAtIsNull(Long id);
-
 	// 영양 정보는 도감 이름으로 찾고 냉장고 멤버인지 확인해서 둘을 함께 읽는다. 트랜잭션 없이 불려서 나중에 지연 로딩할 수 없다
 	@Query("select i from FridgeItem i join fetch i.fridge left join fetch i.catalog"
 		+ " where i.id = :id and i.deletedAt is null")
