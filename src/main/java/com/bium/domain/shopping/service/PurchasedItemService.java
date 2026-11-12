@@ -129,8 +129,14 @@ public class PurchasedItemService {
 	// 잘못 담은 재료를 뺀다. 냉장고로 옮긴 장본 음식은 기록이라 뺄 수 없다
 	public void delete(Long userId, Long purchasedItemId) {
 		// 다른 냉장고의 장본 음식은 있는지도 알 수 없게 없는 장본 음식과 같은 오류를 준다
-		PurchasedItem item = purchasedItemRepository.findByIdAndMovedAtIsNull(purchasedItemId)
-			.filter(found -> fridgeAccessValidator.isMember(found.getFridge().getId(), userId))
+		Long fridgeId = purchasedItemRepository.findFridgeIdById(purchasedItemId)
+			.filter(id -> fridgeAccessValidator.isMember(id, userId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND));
+		// 냉장고로 옮기는 요청과 같은 순서(냉장고 → 장본 음식)로 잠그고 다시 읽는다.
+		// 잠그지 않으면 그사이 다른 멤버가 냉장고로 옮긴 장본 음식까지 지워 옮긴 기록이 사라진다
+		fridgeRepository.findByIdForUpdate(fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		PurchasedItem item = purchasedItemRepository.findByIdForUpdate(purchasedItemId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND));
 		purchasedItemRepository.delete(item);
 	}
