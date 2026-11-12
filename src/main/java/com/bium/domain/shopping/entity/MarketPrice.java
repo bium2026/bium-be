@@ -16,7 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// KAMIS 소매가 시세. 품목마다 대표 품종의 '상품' 등급 가격 하나만 두고 매일 덮어쓴다
+// KAMIS 소매가 시세. 품목마다 품종·등급 중 가장 싼 가격 하나만 두고 매일 덮어쓴다
 @Entity
 @Table(name = "market_prices")
 @Getter
@@ -34,6 +34,10 @@ public class MarketPrice {
 	@Column(length = 50)
 	private String kindName;
 
+	// 상품, 중품 같은 KAMIS 등급
+	@Column(length = 20)
+	private String grade;
+
 	@Column(length = 20)
 	private String unit;
 
@@ -49,18 +53,21 @@ public class MarketPrice {
 	private LocalDateTime fetchedAt;
 
 	@Builder
-	public MarketPrice(String itemName, String kindName, String unit, int price, Integer weekAgoPrice,
+	public MarketPrice(String itemName, String kindName, String grade, String unit, int price, Integer weekAgoPrice,
 		LocalDate surveyDate) {
 		this.itemName = itemName;
 		this.kindName = kindName;
+		this.grade = grade;
 		this.unit = unit;
 		this.price = price;
 		this.weekAgoPrice = weekAgoPrice;
 		this.surveyDate = surveyDate;
 	}
 
-	public void update(String kindName, String unit, int price, Integer weekAgoPrice, LocalDate surveyDate) {
+	public void update(String kindName, String grade, String unit, int price, Integer weekAgoPrice,
+		LocalDate surveyDate) {
 		this.kindName = kindName;
+		this.grade = grade;
 		this.unit = unit;
 		this.price = price;
 		this.weekAgoPrice = weekAgoPrice;

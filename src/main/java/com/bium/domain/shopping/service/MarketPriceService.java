@@ -22,43 +22,47 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class MarketPriceService {
 
-	// 품종마다 상품·중품 가격이 따로 오는데, 장보기 목록에는 '상품' 등급 하나만 보여 준다
-	private static final String GRADE = "상품";
-
 	private final MarketPriceRepository marketPriceRepository;
 
 	/**
-	 * 받은 가격 중 품목마다 처음 나온 '상품' 등급 가격을 대표값으로 저장한다.
+	 * 받은 가격 중 품목마다 품종·등급을 통틀어 가장 싼 가격을 저장한다.
+	 * 단위가 다르면(사과 10개와 1개처럼) 비교할 수 없어서, 품목에서 처음 나온 가격의 단위와 같은 것끼리만 비교한다.
 	 * 같은 날 다시 받아도 같은 행을 덮어쓰므로 결과가 같다.
 	 */
 	public int save(LocalDate surveyDate, List<KamisPrice> prices) {
-		Map<String, KamisPrice> representatives = new LinkedHashMap<>();
+		Map<String, KamisPrice> cheapest = new LinkedHashMap<>();
 		for (KamisPrice price : prices) {
-			if (GRADE.equals(price.rank()) && price.price() != null) {
-				representatives.putIfAbsent(price.itemName(), price);
+			if (price.price() == null) {
+				continue;
+			}
+			KamisPrice current = cheapest.get(price.itemName());
+			if (current == null
+				|| (current.unit().equals(price.unit()) && price.price() < current.price())) {
+				cheapest.put(price.itemName(), price);
 			}
 		}
-		if (representatives.isEmpty()) {
+		if (cheapest.isEmpty()) {
 			return 0;
 		}
 
-		Map<String, MarketPrice> saved = findByItemNames(representatives.keySet());
-		representatives.forEach((itemName, price) -> {
+		Map<String, MarketPrice> saved = findByItemNames(cheapest.keySet());
+		cheapest.forEach((itemName, price) -> {
 			MarketPrice marketPrice = saved.get(itemName);
 			if (marketPrice == null) {
 				marketPriceRepository.save(MarketPrice.builder()
 					.itemName(itemName)
 					.kindName(price.kindName())
+					.grade(price.rank())
 					.unit(price.unit())
 					.price(price.price())
 					.weekAgoPrice(price.weekAgoPrice())
 					.surveyDate(surveyDate)
 					.build());
 			} else {
-				marketPrice.update(price.kindName(), price.unit(), price.price(), price.weekAgoPrice(), surveyDate);
+				marketPrice.update(price.kindName(), price.rank(), price.unit(), price.price(), price.weekAgoPrice(), surveyDate);
 			}
 		});
-		return representatives.size();
+		return cheapest.size();
 	}
 
 	// 목록의 이름들을 한 번에 조회해서 항목마다 쿼리가 나가지 않게 한다
