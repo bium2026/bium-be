@@ -4,8 +4,8 @@ import java.time.LocalDate;
 
 import com.bium.domain.shopping.entity.MarketPrice;
 
-// KAMIS 평균 소매가. 쇼핑몰 최저가가 아니다
-public record MarketPriceResponse(int price, String unit, String kindName, LocalDate surveyDate,
+// KAMIS 소매가 중 품종·등급을 통틀어 가장 싼 가격. 쇼핑몰 최저가가 아니다
+public record MarketPriceResponse(int price, String unit, String kindName, String grade, LocalDate surveyDate,
 	Integer weekAgoPrice) {
 
 	public static MarketPriceResponse from(MarketPrice marketPrice) {
@@ -13,7 +13,7 @@ public record MarketPriceResponse(int price, String unit, String kindName, Local
 			return null;
 		}
 		return new MarketPriceResponse(marketPrice.getPrice(), marketPrice.getUnit(), marketPrice.getKindName(),
-			marketPrice.getSurveyDate(), marketPrice.getWeekAgoPrice());
+			marketPrice.getGrade(), marketPrice.getSurveyDate(), marketPrice.getWeekAgoPrice());
 	}
 
 }
