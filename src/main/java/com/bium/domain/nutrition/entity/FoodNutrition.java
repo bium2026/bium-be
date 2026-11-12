@@ -1,6 +1,7 @@
 package com.bium.domain.nutrition.entity;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -28,6 +29,7 @@ import lombok.NoArgsConstructor;
 public class FoodNutrition {
 
 	private static final int MAX_FOOD_NAME_LENGTH = 100;
+	private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -96,6 +98,18 @@ public class FoodNutrition {
 
 	public boolean hasAnyValue() {
 		return caloriesKcal != null || carbohydrateG != null || proteinG != null || fatG != null;
+	}
+
+	public boolean hasAllValues() {
+		return caloriesKcal != null && carbohydrateG != null && proteinG != null && fatG != null;
+	}
+
+	// 기준량(baseAmountG)당 값을 100g당 값으로 바꾼다. 기준량을 모르면 100g으로 본다
+	public BigDecimal per100g(BigDecimal value) {
+		if (baseAmountG == null || baseAmountG.signum() <= 0 || baseAmountG.compareTo(HUNDRED) == 0) {
+			return value;
+		}
+		return value.multiply(HUNDRED).divide(baseAmountG, 2, RoundingMode.HALF_UP);
 	}
 
 	// 맞는 식품이 없던 이름은 식약처 DB가 바뀌었을 수 있어 일정 기간이 지나면 다시 찾는다. 찾은 식품은 다시 부르지 않는다

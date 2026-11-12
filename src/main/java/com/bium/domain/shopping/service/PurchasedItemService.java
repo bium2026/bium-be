@@ -20,6 +20,7 @@ import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
 import com.bium.domain.ingredient.service.FridgeItemArranger;
+import com.bium.domain.nutrition.service.NutritionPrefetcher;
 import com.bium.domain.shopping.dto.PurchasedItemCreateRequest;
 import com.bium.domain.shopping.dto.PurchasedItemListResponse;
 import com.bium.domain.shopping.dto.PurchasedItemMoveRequest;
@@ -46,6 +47,7 @@ public class PurchasedItemService {
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeItemArranger fridgeItemArranger;
 	private final ActivityLogService activityLogService;
+	private final NutritionPrefetcher nutritionPrefetcher;
 	private final Clock clock;
 
 	// 도감 재료를 오늘 산 것으로 담는다. 같은 재료를 두 번 사는 경우도 있어 이미 담긴 재료여도 막지 않는다
@@ -119,6 +121,8 @@ public class PurchasedItemService {
 		fridgeItemRepository.save(item);
 		purchasedItem.moveTo(item, LocalDateTime.now(clock));
 		activityLogService.recordItem(userId, item, ActivityAction.ADD);
+		// 수정 모달이나 영양 균형을 열 때 기다리지 않도록 영양 정보를 미리 찾아 둔다
+		nutritionPrefetcher.prefetchAfterCommit(List.of(item));
 		return FridgeItemResponse.from(item);
 	}
 

@@ -33,6 +33,7 @@ import com.bium.domain.ingredient.entity.SectionType;
 import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
+import com.bium.domain.nutrition.service.NutritionPrefetcher;
 import com.bium.domain.user.entity.User;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
@@ -54,6 +55,7 @@ public class FridgeItemService {
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final FridgeItemArranger fridgeItemArranger;
 	private final ActivityLogService activityLogService;
+	private final NutritionPrefetcher nutritionPrefetcher;
 	private final Clock clock;
 	private final EntityManager entityManager;
 
@@ -83,6 +85,8 @@ public class FridgeItemService {
 			.build();
 		fridgeItemRepository.save(item);
 		activityLogService.recordItem(userId, item, ActivityAction.ADD);
+		// 수정 모달이나 영양 균형을 열 때 기다리지 않도록 영양 정보를 미리 찾아 둔다
+		nutritionPrefetcher.prefetchAfterCommit(List.of(item));
 		return FridgeItemResponse.from(item);
 	}
 
@@ -116,6 +120,7 @@ public class FridgeItemService {
 		}
 		fridgeItemRepository.saveAll(items);
 		items.forEach(item -> activityLogService.recordItem(userId, item, ActivityAction.ADD));
+		nutritionPrefetcher.prefetchAfterCommit(items);
 		return new FridgeItemBulkCreateResponse(items.stream().map(FridgeItemResponse::from).toList());
 	}
 
