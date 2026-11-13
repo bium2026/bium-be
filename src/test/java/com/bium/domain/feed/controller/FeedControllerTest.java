@@ -102,6 +102,7 @@ class FeedControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.fridges.length()").value(1))
 			.andExpect(jsonPath("$.data.fridges[0].name").value("강희의 냉장고"))
+			.andExpect(jsonPath("$.data.fridges[0].isPublic").value(true))
 			.andExpect(jsonPath("$.data.fridges[0].ownerNickname").value("강희"))
 			.andExpect(jsonPath("$.data.fridges[0].memberCount").value(2))
 			.andExpect(jsonPath("$.data.fridges[0].itemCount").value(9))
@@ -195,13 +196,28 @@ class FeedControllerTest {
 	}
 
 	@Test
-	void 공개하지_않은_냉장고는_멤버라도_피드에서_찾을_수_없다() throws Exception {
+	void 공개하지_않은_냉장고는_멤버만_피드에_어떻게_보일지_미리_본다() throws Exception {
 		Fridge hidden = fridge("숨긴 냉장고", owner, false);
 		em.persist(new FridgeMember(hidden, member, MemberRole.MEMBER));
+		item(hidden, "두부", StorageType.FRIDGE, SectionType.CENTER, 0, null);
 
 		perform(get("/api/feed/fridges/{fridgeId}", hidden.getId()), memberToken)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.fridge.isPublic").value(false))
+			.andExpect(jsonPath("$.data.fridge.mine").value(true))
+			.andExpect(jsonPath("$.data.fridge.itemCount").value(1))
+			.andExpect(jsonPath("$.data.contents.fridge.center[*].name").value(contains("두부")));
+	}
+
+	@Test
+	void 공개하지_않은_냉장고는_멤버가_아니면_찾을_수_없다() throws Exception {
+		Fridge hidden = fridge("숨긴 냉장고", owner, false);
+
+		perform(get("/api/feed/fridges/{fridgeId}", hidden.getId()), viewerToken)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.error.code").value("FRIDGE_NOT_FOUND"));
+		perform(get("/api/feed/fridges/{fridgeId}", 999_999L), viewerToken)
+			.andExpect(status().isNotFound());
 	}
 
 	@Test
