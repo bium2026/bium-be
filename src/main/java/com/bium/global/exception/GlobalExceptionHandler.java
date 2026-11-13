@@ -1,6 +1,8 @@
 package com.bium.global.exception;
 
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -38,6 +40,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
 	}
 
+	// 잠금을 기다리다 시간이 다 되거나 교착 상태로 DB가 요청을 되돌리면 다른 멤버의 요청과 겹친 것이라,
+	// 500 대신 동시 수정과 같은 409로 알려 화면이 새로 불러오게 한다
+	@ExceptionHandler(PessimisticLockingFailureException.class)
+	public ResponseEntity<ApiResponse<Void>> handlePessimisticLockingFailureException(
+		PessimisticLockingFailureException e) {
+		log.warn("잠금을 얻지 못해 요청을 되돌렸습니다.", e);
+		ErrorCode errorCode = ErrorCode.CONCURRENT_MODIFICATION;
+		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
+	}
+
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
 		ErrorCode errorCode = e.getErrorCode();
@@ -59,6 +71,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			.map(FieldError::getDefaultMessage)
 			.orElse(ErrorCode.INVALID_INPUT.getMessage());
 		return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.INVALID_INPUT.name(), message));
+	}
+
+	// 주소나 쿼리 파라미터를 숫자·enum 같은 타입으로 바꾸지 못하면 다른 입력 오류와 같은 코드로 준다
+	@Override
+	protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException ex, HttpHeaders headers,
+		HttpStatusCode status, WebRequest request) {
+		return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.INVALID_INPUT));
 	}
 
 	// spring.servlet.multipart의 크기 제한을 넘은 사진

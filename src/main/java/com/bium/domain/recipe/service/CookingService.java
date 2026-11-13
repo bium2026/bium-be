@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bium.domain.activity.entity.ActivityAction;
 import com.bium.domain.activity.service.ActivityLogService;
+import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.entity.FridgeItem;
@@ -58,6 +59,7 @@ public class CookingService {
 	private final RecipeRepository recipeRepository;
 	private final RecipeIngredientRepository recipeIngredientRepository;
 	private final FridgeItemRepository fridgeItemRepository;
+	private final FridgeRepository fridgeRepository;
 	private final CookingLogRepository cookingLogRepository;
 	private final CookingLogItemRepository cookingLogItemRepository;
 	private final UserRepository userRepository;
@@ -136,8 +138,16 @@ public class CookingService {
 
 	public CookingUndoResponse undo(Long userId, Long cookingLogId) {
 		CookingLog cookingLog = cookingLogRepository.findByIdForUpdate(cookingLogId)
-			.filter(found -> fridgeAccessValidator.isMember(found.getFridge().getId(), userId))
 			.orElseThrow(() -> new BusinessException(ErrorCode.COOKING_LOG_NOT_FOUND));
+		// 재료를 되돌린 뒤 활동 기록을 넣으며 MySQL이 외래 키를 확인하려고 냉장고 행의 잠금을 기다린다.
+		// 재료 행을 잡은 채 기다리면 냉장고 → 칸의 재료 순서로 잠그는 옮기기 요청과 교착 상태가 생겨서,
+		// 재료를 읽기 전에 냉장고부터 잠근다
+		Long fridgeId = cookingLog.getFridge().getId();
+		fridgeRepository.findByIdForUpdate(fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.COOKING_LOG_NOT_FOUND));
+		if (!fridgeAccessValidator.isMember(fridgeId, userId)) {
+			throw new BusinessException(ErrorCode.COOKING_LOG_NOT_FOUND);
+		}
 		if (cookingLog.isUndone()) {
 			throw new BusinessException(ErrorCode.ALREADY_UNDONE);
 		}

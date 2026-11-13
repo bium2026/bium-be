@@ -20,6 +20,7 @@ import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
 import com.bium.domain.ingredient.service.FridgeItemArranger;
+import com.bium.domain.nutrition.service.NutritionPrefetcher;
 import com.bium.domain.shopping.dto.PurchasedItemCreateRequest;
 import com.bium.domain.shopping.dto.PurchasedItemListResponse;
 import com.bium.domain.shopping.dto.PurchasedItemMoveRequest;
@@ -46,6 +47,7 @@ public class PurchasedItemService {
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeItemArranger fridgeItemArranger;
 	private final ActivityLogService activityLogService;
+	private final NutritionPrefetcher nutritionPrefetcher;
 	private final Clock clock;
 
 	// 도감 재료를 오늘 산 것으로 담는다. 같은 재료를 두 번 사는 경우도 있어 이미 담긴 재료여도 막지 않는다
@@ -119,14 +121,22 @@ public class PurchasedItemService {
 		fridgeItemRepository.save(item);
 		purchasedItem.moveTo(item, LocalDateTime.now(clock));
 		activityLogService.recordItem(userId, item, ActivityAction.ADD);
+		// 수정 모달이나 영양 균형을 열 때 기다리지 않도록 영양 정보를 미리 찾아 둔다
+		nutritionPrefetcher.prefetchAfterCommit(List.of(item));
 		return FridgeItemResponse.from(item);
 	}
 
 	// 잘못 담은 재료를 뺀다. 냉장고로 옮긴 장본 음식은 기록이라 뺄 수 없다
 	public void delete(Long userId, Long purchasedItemId) {
 		// 다른 냉장고의 장본 음식은 있는지도 알 수 없게 없는 장본 음식과 같은 오류를 준다
-		PurchasedItem item = purchasedItemRepository.findByIdAndMovedAtIsNull(purchasedItemId)
-			.filter(found -> fridgeAccessValidator.isMember(found.getFridge().getId(), userId))
+		Long fridgeId = purchasedItemRepository.findFridgeIdById(purchasedItemId)
+			.filter(id -> fridgeAccessValidator.isMember(id, userId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND));
+		// 냉장고로 옮기는 요청과 같은 순서(냉장고 → 장본 음식)로 잠그고 다시 읽는다.
+		// 잠그지 않으면 그사이 다른 멤버가 냉장고로 옮긴 장본 음식까지 지워 옮긴 기록이 사라진다
+		fridgeRepository.findByIdForUpdate(fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		PurchasedItem item = purchasedItemRepository.findByIdForUpdate(purchasedItemId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.PURCHASED_ITEM_NOT_FOUND));
 		purchasedItemRepository.delete(item);
 	}
