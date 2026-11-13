@@ -1,6 +1,8 @@
 package com.bium.domain.ingredient.service;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -10,7 +12,10 @@ import com.bium.domain.ingredient.dto.IngredientCatalogCreateRequest;
 import com.bium.domain.ingredient.dto.IngredientCatalogListResponse;
 import com.bium.domain.ingredient.dto.IngredientCatalogResponse;
 import com.bium.domain.ingredient.entity.IngredientCatalog;
+import com.bium.domain.ingredient.entity.IngredientFavorite;
+import com.bium.domain.ingredient.entity.IngredientFavoriteId;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
+import com.bium.domain.ingredient.repository.IngredientFavoriteRepository;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
@@ -27,13 +32,17 @@ import lombok.RequiredArgsConstructor;
 public class IngredientCatalogService {
 
 	private final IngredientCatalogRepository ingredientCatalogRepository;
+	private final IngredientFavoriteRepository ingredientFavoriteRepository;
 	private final UserRepository userRepository;
 
-	// 방금 추가한 재료가 앞에 오도록 최근에 추가한 순서로 준다
+	// 즐겨찾기한 재료를 먼저, 그 안에서는 방금 추가한 재료가 앞에 오도록 최근에 추가한 순서로 준다
 	public IngredientCatalogListResponse getMyCatalog(Long userId) {
+		Set<Long> favoriteIds = ingredientFavoriteRepository.findCatalogIdsByUserId(userId);
 		List<IngredientCatalogResponse> ingredients = ingredientCatalogRepository.findAllByOwnerIdOrderByIdDesc(userId)
 			.stream()
-			.map(IngredientCatalogResponse::from)
+			.map(catalog -> IngredientCatalogResponse.from(catalog, favoriteIds.contains(catalog.getId())))
+			// 정렬이 안정적이라 같은 그룹 안에서는 최근 순서가 유지된다
+			.sorted(Comparator.comparing(IngredientCatalogResponse::favorite).reversed())
 			.toList();
 		return new IngredientCatalogListResponse(ingredients);
 	}
@@ -58,21 +67,44 @@ public class IngredientCatalogService {
 			// 같은 이름을 동시에 추가하면 위 확인을 둘 다 통과하고 (owner_key, name) 유니크 제약에서 걸린다
 			throw new BusinessException(ErrorCode.DUPLICATE_CATALOG_NAME);
 		}
-		return IngredientCatalogResponse.from(catalog);
+		return IngredientCatalogResponse.from(catalog, false);
+	}
+
+	// 이미 즐겨찾기한 재료여도 오류 없이 같은 결과를 준다
+	@Transactional
+	public IngredientCatalogResponse addFavorite(Long userId, Long catalogId) {
+		IngredientCatalog catalog = findMyCatalog(userId, catalogId);
+		if (!ingredientFavoriteRepository.existsById(new IngredientFavoriteId(userId, catalogId))) {
+			ingredientFavoriteRepository.save(new IngredientFavorite(userRepository.getReferenceById(userId), catalog));
+		}
+		return IngredientCatalogResponse.from(catalog, true);
+	}
+
+	// 즐겨찾기하지 않은 재료여도 오류 없이 같은 결과를 준다
+	@Transactional
+	public IngredientCatalogResponse removeFavorite(Long userId, Long catalogId) {
+		IngredientCatalog catalog = findMyCatalog(userId, catalogId);
+		ingredientFavoriteRepository.deleteById(new IngredientFavoriteId(userId, catalogId));
+		return IngredientCatalogResponse.from(catalog, false);
 	}
 
 	@Transactional
 	public void delete(Long userId, Long catalogId) {
-		// 다른 사용자의 재료나 공용 도감은 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
-		IngredientCatalog catalog = ingredientCatalogRepository.findByIdAndOwnerId(catalogId, userId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
+		IngredientCatalog catalog = findMyCatalog(userId, catalogId);
 
 		// 이 재료를 가리키는 행이 남아 있으면 외래 키 때문에 지워지지 않는다
 		ingredientCatalogRepository.detachFridgeItems(catalogId);
 		ingredientCatalogRepository.detachPurchasedItems(catalogId);
 		ingredientCatalogRepository.detachShoppingListItems(catalogId);
 		ingredientCatalogRepository.detachRecipeIngredients(catalogId);
+		ingredientCatalogRepository.deleteFavorites(catalogId);
 		ingredientCatalogRepository.delete(catalog);
+	}
+
+	// 다른 사용자의 재료나 공용 도감은 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
+	private IngredientCatalog findMyCatalog(Long userId, Long catalogId) {
+		return ingredientCatalogRepository.findByIdAndOwnerId(catalogId, userId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
 	}
 
 }

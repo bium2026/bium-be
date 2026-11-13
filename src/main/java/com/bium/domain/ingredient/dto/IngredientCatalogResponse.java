@@ -4,11 +4,11 @@ import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.entity.IngredientCategory;
 
 public record IngredientCatalogResponse(Long id, String name, String emoji, IngredientCategory category,
-	Integer shelfLifeDays) {
+	Integer shelfLifeDays, boolean favorite) {
 
-	public static IngredientCatalogResponse from(IngredientCatalog catalog) {
+	public static IngredientCatalogResponse from(IngredientCatalog catalog, boolean favorite) {
 		return new IngredientCatalogResponse(catalog.getId(), catalog.getName(), catalog.getEmoji(),
-			catalog.getCategory(), catalog.getShelfLifeDays());
+			catalog.getCategory(), catalog.getShelfLifeDays(), favorite);
 	}
 
 }

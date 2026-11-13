@@ -35,4 +35,8 @@ public interface IngredientCatalogRepository extends JpaRepository<IngredientCat
 	@Query("update RecipeIngredient i set i.catalog = null where i.catalog.id = :catalogId")
 	void detachRecipeIngredients(Long catalogId);
 
+	@Modifying
+	@Query("delete from IngredientFavorite f where f.id.catalogId = :catalogId")
+	void deleteFavorites(Long catalogId);
+
 }

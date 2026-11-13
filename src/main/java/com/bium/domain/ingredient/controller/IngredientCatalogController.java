@@ -48,4 +48,18 @@ public class IngredientCatalogController {
 		return ResponseEntity.ok(ApiResponse.success(null));
 	}
 
+	@PostMapping("/{catalogId}/favorite")
+	public ResponseEntity<ApiResponse<IngredientCatalogResponse>> addFavorite(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long catalogId) {
+		return ResponseEntity.ok(ApiResponse.success(
+			ingredientCatalogService.addFavorite(Long.valueOf(jwt.getSubject()), catalogId)));
+	}
+
+	@DeleteMapping("/{catalogId}/favorite")
+	public ResponseEntity<ApiResponse<IngredientCatalogResponse>> removeFavorite(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long catalogId) {
+		return ResponseEntity.ok(ApiResponse.success(
+			ingredientCatalogService.removeFavorite(Long.valueOf(jwt.getSubject()), catalogId)));
+	}
+
 }
