@@ -53,3 +53,7 @@ recipe:
     rate-limit-per-minute: ${RECIPE_RECOMMENDATION_RATE_LIMIT:5}
     # 서버 전체 분당 추천 요청 수. Gemini 분당 한도보다 낮게 둔다
     global-rate-limit-per-minute: ${RECIPE_RECOMMENDATION_GLOBAL_RATE_LIMIT:15}
+
+ingredient-catalog:
+  # 자주 쓰는 재료(resources/catalog/basic-ingredients.tsv)를 서버를 켤 때 공용 도감에 넣는다
+  seed-basic-ingredients: true

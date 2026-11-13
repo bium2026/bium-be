@@ -36,3 +36,7 @@ recipe:
   recommendation:
     rate-limit-per-minute: 1000
     global-rate-limit-per-minute: 1000
+
+ingredient-catalog:
+  # 통합 테스트는 도감에 사용자가 만든 재료만 있다고 보고 만들어서 기본 재료를 넣지 않는다
+  seed-basic-ingredients: false
