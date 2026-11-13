@@ -53,8 +53,8 @@ public class PurchasedItemService {
 	// 도감 재료를 오늘 산 것으로 담는다. 같은 재료를 두 번 사는 경우도 있어 이미 담긴 재료여도 막지 않는다
 	public PurchasedItemResponse create(Long userId, Long fridgeId, PurchasedItemCreateRequest request) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		// 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
-		IngredientCatalog catalog = ingredientCatalogRepository.findByIdAndOwnerId(request.catalogId(), userId)
+		// 내 재료와 기본 재료만 담을 수 있다. 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
+		IngredientCatalog catalog = ingredientCatalogRepository.findUsableById(request.catalogId(), userId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
 
 		LocalDate today = LocalDate.now(clock);
