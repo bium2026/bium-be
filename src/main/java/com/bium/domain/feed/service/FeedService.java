@@ -27,6 +27,7 @@ import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
 import com.bium.domain.fridge.repository.FridgeMemberRepository;
 import com.bium.domain.fridge.repository.FridgeRepository;
+import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.StorageType;
@@ -38,7 +39,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 소유자가 공개한 냉장고를 다른 사용자도 볼 수 있는 피드다.
- * 공개하지 않은 냉장고는 멤버라도 피드에서 찾을 수 없다.
+ * 공개하지 않은 냉장고는 목록에 나오지 않고, 멤버만 피드에 어떻게 보일지 미리 볼 수 있다.
  */
 @Service
 @RequiredArgsConstructor
@@ -62,6 +63,7 @@ public class FeedService {
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FeedLikeRepository feedLikeRepository;
 	private final FeedSaveRepository feedSaveRepository;
+	private final FridgeAccessValidator fridgeAccessValidator;
 	private final Clock clock;
 
 	// cursor가 없으면 처음부터, 있으면 그 냉장고 다음부터 준다. savedOnly면 내가 저장한 냉장고만 준다
@@ -86,8 +88,11 @@ public class FeedService {
 		return new FeedPageResponse(responses, nextCursor);
 	}
 
+	// 공개한 냉장고는 누구나 구경한다. 공개하지 않은 냉장고는 멤버만 피드에 어떻게 보일지 미리 본다
 	public FeedFridgeDetailResponse getFridge(Long userId, Long fridgeId) {
-		Fridge fridge = findPublicFridge(fridgeId);
+		Fridge fridge = fridgeRepository.findById(fridgeId)
+			.filter(found -> found.isPublic() || fridgeAccessValidator.isMember(fridgeId, userId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 		List<FridgeItem> items = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(
 			fridgeId);
 		FeedFridgeResponse summary = toResponses(userId, List.of(fridge), Map.of(fridgeId, items)).get(0);
@@ -124,6 +129,7 @@ public class FeedService {
 				return new FeedFridgeResponse(
 					fridgeId,
 					fridge.getName(),
+					fridge.isPublic(),
 					findOwnerNickname(members),
 					members.size(),
 					items.size(),
