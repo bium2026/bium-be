@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import com.bium.domain.feed.entity.FeedId;
@@ -20,5 +21,10 @@ public interface FeedSaveRepository extends JpaRepository<FeedSave, FeedId> {
 
 	@Query("select s.fridge.id from FeedSave s where s.user.id = :userId and s.fridge.id in :fridgeIds")
 	List<Long> findFridgeIdsByUserIdAndFridgeIdIn(Long userId, Collection<Long> fridgeIds);
+
+	// 저장하지 않은 냉장고를 지워도 오류 없이 넘어가게 조건으로 지운다
+	@Modifying
+	@Query("delete from FeedSave s where s.user.id = :userId and s.fridge.id = :fridgeId")
+	int deleteByUserIdAndFridgeId(Long userId, Long fridgeId);
 
 }
