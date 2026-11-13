@@ -46,6 +46,8 @@ nutrition-api:
   connect-timeout: 2s
   # 결과가 없거나 적은 검색도 4~6초 걸려서 그보다 넉넉히 둔다
   read-timeout: 10s
+  # 자주 쓰는 재료의 영양 정보(resources/nutrition/basic-foods.tsv)를 서버를 켤 때 food_nutrition에 미리 넣는다
+  seed-basic-foods: true
 
 recipe:
   recommendation:

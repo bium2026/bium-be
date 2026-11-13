@@ -31,6 +31,8 @@ nutrition-api:
   page-size: 100
   connect-timeout: 1s
   read-timeout: 1s
+  # 통합 테스트는 영양 정보 표가 비어 있다고 보고 만들어서 미리 넣지 않는다
+  seed-basic-foods: false
 
 recipe:
   recommendation:
