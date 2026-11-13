@@ -63,8 +63,8 @@ public class FridgeItemService {
 	public FridgeItemResponse create(Long userId, Long fridgeId, FridgeItemCreateRequest request) {
 		Fridge fridge = lockFridge(fridgeId);
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		// 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
-		IngredientCatalog catalog = ingredientCatalogRepository.findByIdAndOwnerId(request.catalogId(), userId)
+		// 내 재료와 기본 재료만 넣을 수 있다. 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
+		IngredientCatalog catalog = ingredientCatalogRepository.findUsableById(request.catalogId(), userId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
 
 		LocalDate today = LocalDate.now(clock);

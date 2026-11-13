@@ -82,6 +82,11 @@ public class IngredientCatalog {
 		this.defaultUnit = defaultUnit;
 	}
 
+	// 공용 도감(기본 재료)은 모든 사용자가 쓰고, 사용자가 지울 수 없다
+	public boolean isShared() {
+		return owner == null;
+	}
+
 	// 장 본 날부터 기본 유통기한만큼 더한 날을 유통기한으로 삼는다
 	public LocalDate calculateExpiresAt(LocalDate purchasedAt) {
 		return shelfLifeDays == null ? null : purchasedAt.plusDays(shelfLifeDays);
