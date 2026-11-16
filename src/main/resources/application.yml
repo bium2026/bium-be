@@ -17,6 +17,27 @@ spring:
       # 영수증 사진. 휴대폰 사진이 보통 3~8MB라 10MB까지 받는다
       max-file-size: 10MB
       max-request-size: 11MB
+  # 유통기한 알림 메일을 보내는 SMTP 계정. Gmail이면 smtp.gmail.com, 587, 앱 비밀번호를 넣는다
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+notification:
+  # 보내는 사람 주소. 비우면 MAIL_USERNAME을 쓴다
+  from: ${MAIL_FROM:${MAIL_USERNAME:}}
+  # 메일 본문의 '비움에서 확인하기' 주소
+  app-url: ${APP_URL:http://localhost:5173}
+  # 알림 시각이 지난 사용자에게 보낼 메일이 있는지 5분마다 확인한다
+  check-cron: "0 */5 * * * *"
+  scheduler-enabled: true
 
 cors:
   # 쉼표로 구분한 프론트 주소 목록
