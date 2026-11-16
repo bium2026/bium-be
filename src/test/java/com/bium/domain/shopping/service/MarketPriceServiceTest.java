@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,6 +94,22 @@ class MarketPriceServiceTest {
 
 		assertThat(marketPriceService.save(TUESDAY, List.of())).isZero();
 		assertThat(marketPriceService.findByItemNames(List.of("양파")).get("양파").getSurveyDate()).isEqualTo(MONDAY);
+	}
+
+	@Test
+	void 흔히_쓰는_이름은_KAMIS_품목명으로_찾고_넘겨받은_이름을_키로_준다() {
+		marketPriceService.save(TUESDAY, List.of(
+			new KamisPrice("파", "대파(1kg)", "상품", "1kg", 2900, null),
+			new KamisPrice("돼지", "앞다리", "앞다리", "100g", 1538, null),
+			new KamisPrice("양파", "양파(1kg)", "상품", "1kg", 1946, null)));
+
+		Map<String, MarketPrice> prices = marketPriceService.findByItemNames(
+			List.of("대파", "파", "돼지고기", "양파", "삼겹살", "두부"));
+
+		assertThat(prices).containsOnlyKeys("대파", "파", "돼지고기", "양파");
+		assertThat(prices.get("대파").getItemName()).isEqualTo("파");
+		assertThat(prices.get("대파")).isSameAs(prices.get("파"));
+		assertThat(prices.get("돼지고기").getPrice()).isEqualTo(1538);
 	}
 
 	@Test
