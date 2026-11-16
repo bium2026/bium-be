@@ -43,7 +43,7 @@ public class MissingIngredientService {
 	public ShoppingListItemListResponse add(Long userId, Long recipeId, MissingIngredientAddRequest request) {
 		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
 
-		Set<String> missingNames = recipeIngredientRepository.findAllByRecipeIdOrderByIdAsc(recipeId)
+		Set<String> missingNames = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId))
 			.stream()
 			.filter(ingredient -> ingredient.getSource() == IngredientSource.MISSING)
 			.map(RecipeIngredient::getName)

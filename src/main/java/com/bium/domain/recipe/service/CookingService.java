@@ -35,6 +35,7 @@ import com.bium.domain.recipe.recommendation.IngredientMatcher;
 import com.bium.domain.recipe.repository.CookingLogItemRepository;
 import com.bium.domain.recipe.repository.CookingLogRepository;
 import com.bium.domain.recipe.repository.RecipeIngredientRepository;
+import com.bium.domain.recipe.repository.RecipeRepository;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
@@ -55,7 +56,7 @@ public class CookingService {
 		.comparing(FridgeItem::getExpiresAt, Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
 		.thenComparing(FridgeItem::getId);
 
-	private final RecipeFinder recipeFinder;
+	private final RecipeRepository recipeRepository;
 	private final RecipeIngredientRepository recipeIngredientRepository;
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeRepository fridgeRepository;
@@ -68,13 +69,13 @@ public class CookingService {
 
 	@Transactional(readOnly = true)
 	public CookingCandidatesResponse getCandidates(Long userId, Long recipeId) {
-		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
+		Recipe recipe = findAccessibleRecipe(userId, recipeId);
 		List<FridgeItem> fridgeItems = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNull(
 			recipe.getFridge().getId());
 
 		// 소금·간장 같은 기본 양념은 냉장고에서 관리하지 않으므로 뺄 후보를 찾지 않는다
-		List<IngredientCandidates> ingredients = recipeIngredientRepository.findAllByRecipeIdOrderByIdAsc(recipeId)
-			.stream()
+		List<IngredientCandidates> ingredients = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(
+				List.of(recipeId)).stream()
 			.filter(ingredient -> ingredient.getSource() != IngredientSource.BASIC)
 			.map(ingredient -> new IngredientCandidates(ingredient.getName(), ingredient.getAmount(),
 				fridgeItems.stream()
@@ -88,7 +89,7 @@ public class CookingService {
 
 	// 재료를 하나라도 뺄 수 없으면 아무것도 빼지 않는다
 	public CookingLogResponse cook(Long userId, Long recipeId, CookingRequest request) {
-		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
+		Recipe recipe = findAccessibleRecipe(userId, recipeId);
 		Long fridgeId = recipe.getFridge().getId();
 
 		// 레시피 재료 두 개가 같은 냉장고 재료로 추천될 수 있어 같은 재료는 한 번만 뺀다
@@ -162,6 +163,13 @@ public class CookingService {
 		restoredItems.forEach(item -> activityLogService.recordCooking(userId, item, cookingLog, ActivityAction.RESTORE));
 
 		return new CookingUndoResponse(cookingLogId, restoredItems.stream().map(FridgeItem::getId).toList(), now);
+	}
+
+	// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
+	private Recipe findAccessibleRecipe(Long userId, Long recipeId) {
+		return recipeRepository.findById(recipeId)
+			.filter(recipe -> fridgeAccessValidator.isMember(recipe.getFridge().getId(), userId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NOT_FOUND));
 	}
 
 }

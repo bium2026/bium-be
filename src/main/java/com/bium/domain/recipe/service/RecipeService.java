@@ -83,7 +83,7 @@ public class RecipeService {
 	@Transactional(readOnly = true)
 	public RecipeResponse getRecipe(Long userId, Long recipeId) {
 		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
-		return RecipeResponse.of(recipe, recipeIngredientRepository.findAllByRecipeIdOrderByIdAsc(recipeId));
+		return RecipeResponse.of(recipe, recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId)));
 	}
 
 	private List<RecommendationIngredient> findIngredients(Long fridgeId) {
