@@ -21,6 +21,10 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 	// 칸 안에서 보여 줄 순서대로 가져온다. 순서가 같으면 먼저 넣은 재료가 앞에 온다
 	List<FridgeItem> findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(Long fridgeId);
 
+	// 피드 목록에서 냉장고마다 쿼리가 나가지 않게 여러 냉장고의 재료를 칸 안 순서대로 한 번에 가져온다
+	@Query("select i from FridgeItem i where i.fridge.id in :fridgeIds and i.deletedAt is null order by i.sortOrder, i.id")
+	List<FridgeItem> findAllByFridgeIdInOrderBySortOrder(Collection<Long> fridgeIds);
+
 	// 순번을 다시 매길 칸의 재료를 보여 주는 순서대로 잠그고 읽는다. 잠그는 조회는 MySQL에서 스냅샷 없이 최신 값을 읽어서
 	// 앞선 요청이 커밋한 순번과 새 재료까지 본다
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
