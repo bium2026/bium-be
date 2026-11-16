@@ -2,7 +2,6 @@ package com.bium.domain.recipe.recommendation;
 
 import java.util.List;
 
-import com.bium.domain.recipe.entity.IngredientSource;
 import com.bium.domain.recipe.entity.RecipeDifficulty;
 
 /**

@@ -112,7 +112,6 @@ public class RecipeCandidateSelector {
 			fridgeMatches);
 	}
 
-
 	private IngredientSource sourceOf(String name, IngredientMatcher matcher) {
 		if (matcher.isAvailable(name)) {
 			return IngredientSource.FRIDGE;
