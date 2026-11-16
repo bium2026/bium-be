@@ -1,5 +1,6 @@
 package com.bium.domain.ingredient.repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,12 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 
 	// 칸 안에서 보여 줄 순서대로 가져온다. 순서가 같으면 먼저 넣은 재료가 앞에 온다
 	List<FridgeItem> findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(Long fridgeId);
+
+	// 유통기한 알림 메일에 넣을 재료. 내가 멤버인 모든 냉장고에서 유통기한이 dates 중 하루인 재료를 냉장고 이름과 함께 가져온다
+	@Query("select i from FridgeItem i join fetch i.fridge f where i.deletedAt is null and i.expiresAt in :dates"
+		+ " and f.id in (select m.fridge.id from FridgeMember m where m.user.id = :userId)"
+		+ " order by i.expiresAt, f.id, i.sortOrder, i.id")
+	List<FridgeItem> findExpiringForUser(Long userId, Collection<LocalDate> dates);
 
 	// 피드 목록에서 냉장고마다 쿼리가 나가지 않게 여러 냉장고의 재료를 칸 안 순서대로 한 번에 가져온다
 	@Query("select i from FridgeItem i where i.fridge.id in :fridgeIds and i.deletedAt is null order by i.sortOrder, i.id")
