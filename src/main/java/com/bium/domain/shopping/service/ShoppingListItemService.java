@@ -1,6 +1,7 @@
 package com.bium.domain.shopping.service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class ShoppingListItemService {
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final MarketPriceService marketPriceService;
 
 	// 사용자가 직접 담는 것이라 같은 이름이 이미 담겨 있어도 막지 않는다
 	public ShoppingListItemResponse create(Long userId, Long fridgeId, ShoppingListItemCreateRequest request) {
@@ -38,28 +40,31 @@ public class ShoppingListItemService {
 			.name(request.name())
 			.build();
 		shoppingListItemRepository.save(item);
-		return ShoppingListItemResponse.from(item);
+		return toResponse(item);
 	}
 
 	// 냉장고 멤버가 함께 쓰는 목록이라 누가 담았는지와 상관없이 같은 목록을 준다
 	@Transactional(readOnly = true)
 	public ShoppingListItemListResponse getItems(Long userId, Long fridgeId) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		List<ShoppingListItemResponse> items = shoppingListItemRepository.findAllWithRecipeByFridgeId(fridgeId)
-			.stream()
-			.map(ShoppingListItemResponse::from)
-			.toList();
-		return new ShoppingListItemListResponse(items);
+		List<ShoppingListItem> items = shoppingListItemRepository.findAllWithRecipeByFridgeId(fridgeId);
+		return ShoppingListItemListResponse.of(items, marketPriceService.findByItemNames(
+			items.stream().map(ShoppingListItem::getName).collect(Collectors.toSet())));
 	}
 
 	public ShoppingListItemResponse check(Long userId, Long itemId, ShoppingListItemCheckRequest request) {
 		ShoppingListItem item = findAccessibleItem(userId, itemId);
 		item.check(request.checked());
-		return ShoppingListItemResponse.from(item);
+		return toResponse(item);
 	}
 
 	public void delete(Long userId, Long itemId) {
 		shoppingListItemRepository.delete(findAccessibleItem(userId, itemId));
+	}
+
+	private ShoppingListItemResponse toResponse(ShoppingListItem item) {
+		return ShoppingListItemResponse.of(item,
+			marketPriceService.findByItemNames(List.of(item.getName())).get(item.getName()));
 	}
 
 	// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다

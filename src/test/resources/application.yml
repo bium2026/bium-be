@@ -25,6 +25,15 @@ gemini:
   connect-timeout: 1s
   read-timeout: 1s
 
+kamis:
+  cert-key: test-cert-key
+  cert-id: test-cert-id
+  base-url: http://localhost:0
+  connect-timeout: 1s
+  read-timeout: 1s
+  # 테스트 중에는 예약 수집을 끈다
+  collect-cron: "-"
+
 nutrition-api:
   service-key: test-service-key
   base-url: http://localhost:0
