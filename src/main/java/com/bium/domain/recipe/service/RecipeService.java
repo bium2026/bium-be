@@ -40,6 +40,7 @@ public class RecipeService {
 	private final FridgeItemRepository fridgeItemRepository;
 	private final UserRepository userRepository;
 	private final RecipeRepository recipeRepository;
+	private final RecipeFinder recipeFinder;
 	private final RecipeIngredientRepository recipeIngredientRepository;
 	private final TransactionTemplate transactionTemplate;
 	private final Clock clock;
@@ -81,11 +82,8 @@ public class RecipeService {
 
 	@Transactional(readOnly = true)
 	public RecipeResponse getRecipe(Long userId, Long recipeId) {
-		// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
-		Recipe recipe = recipeRepository.findById(recipeId)
-			.filter(found -> fridgeAccessValidator.isMember(found.getFridge().getId(), userId))
-			.orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NOT_FOUND));
-		return RecipeResponse.of(recipe, recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId)));
+		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
+		return RecipeResponse.of(recipe, recipeIngredientRepository.findAllByRecipeIdOrderByIdAsc(recipeId));
 	}
 
 	private List<RecommendationIngredient> findIngredients(Long fridgeId) {

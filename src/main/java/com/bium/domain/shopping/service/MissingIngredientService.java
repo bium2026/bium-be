@@ -8,13 +8,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bium.domain.fridge.repository.FridgeRepository;
-import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.recipe.entity.IngredientSource;
 import com.bium.domain.recipe.entity.Recipe;
 import com.bium.domain.recipe.entity.RecipeIngredient;
 import com.bium.domain.recipe.recommendation.IngredientMatcher;
 import com.bium.domain.recipe.repository.RecipeIngredientRepository;
-import com.bium.domain.recipe.repository.RecipeRepository;
+import com.bium.domain.recipe.service.RecipeFinder;
 import com.bium.domain.shopping.dto.MissingIngredientAddRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemListResponse;
 import com.bium.domain.shopping.entity.ShoppingListItem;
@@ -33,22 +32,18 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class MissingIngredientService {
 
-	private final RecipeRepository recipeRepository;
+	private final RecipeFinder recipeFinder;
 	private final RecipeIngredientRepository recipeIngredientRepository;
 	private final ShoppingListItemRepository shoppingListItemRepository;
 	private final FridgeRepository fridgeRepository;
 	private final UserRepository userRepository;
-	private final FridgeAccessValidator fridgeAccessValidator;
 	private final MarketPriceService marketPriceService;
 
 	// 고른 재료 중 하나라도 이 레시피의 부족 재료가 아니면 아무것도 담지 않는다
 	public ShoppingListItemListResponse add(Long userId, Long recipeId, MissingIngredientAddRequest request) {
-		// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
-		Recipe recipe = recipeRepository.findById(recipeId)
-			.filter(found -> fridgeAccessValidator.isMember(found.getFridge().getId(), userId))
-			.orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NOT_FOUND));
+		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
 
-		Set<String> missingNames = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId))
+		Set<String> missingNames = recipeIngredientRepository.findAllByRecipeIdOrderByIdAsc(recipeId)
 			.stream()
 			.filter(ingredient -> ingredient.getSource() == IngredientSource.MISSING)
 			.map(RecipeIngredient::getName)

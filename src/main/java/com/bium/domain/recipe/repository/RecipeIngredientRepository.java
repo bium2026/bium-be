@@ -8,6 +8,6 @@ import com.bium.domain.recipe.entity.RecipeIngredient;
 
 public interface RecipeIngredientRepository extends JpaRepository<RecipeIngredient, Long> {
 
-	List<RecipeIngredient> findAllByRecipeIdInOrderByIdAsc(List<Long> recipeIds);
+	List<RecipeIngredient> findAllByRecipeIdOrderByIdAsc(Long recipeId);
 
 }
