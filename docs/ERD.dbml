@@ -30,6 +30,7 @@ Table fridges {
   id          bigint [pk, increment]
   name        varchar(50) [not null]
   is_public   boolean [default: false, note: '피드 공개 여부']
+  shopping_day varchar(10) [note: '장보는 요일 MONDAY~SUNDAY, 정하지 않았으면 null']
   created_at  datetime
   updated_at  datetime
 }

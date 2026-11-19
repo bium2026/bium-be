@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bium.domain.fridge.dto.FridgeResponse;
+import com.bium.domain.fridge.dto.FridgeShoppingDayRequest;
 import com.bium.domain.fridge.dto.FridgeVisibilityRequest;
 import com.bium.domain.fridge.service.FridgeService;
 import com.bium.global.response.ApiResponse;
@@ -30,6 +31,13 @@ public class FridgeController {
 	@GetMapping
 	public ResponseEntity<ApiResponse<List<FridgeResponse>>> getMyFridges(@AuthenticationPrincipal Jwt jwt) {
 		return ResponseEntity.ok(ApiResponse.success(fridgeService.getMyFridges(Long.valueOf(jwt.getSubject()))));
+	}
+
+	@PatchMapping("/{fridgeId}/shopping-day")
+	public ResponseEntity<ApiResponse<FridgeResponse>> changeShoppingDay(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long fridgeId, @RequestBody FridgeShoppingDayRequest request) {
+		return ResponseEntity.ok(ApiResponse.success(
+			fridgeService.changeShoppingDay(Long.valueOf(jwt.getSubject()), fridgeId, request)));
 	}
 
 	@PatchMapping("/{fridgeId}/visibility")

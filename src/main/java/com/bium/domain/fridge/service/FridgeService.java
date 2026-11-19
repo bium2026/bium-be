@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bium.domain.fridge.dto.FridgeResponse;
+import com.bium.domain.fridge.dto.FridgeShoppingDayRequest;
 import com.bium.domain.fridge.dto.FridgeVisibilityRequest;
 import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.entity.FridgeMember;
@@ -48,7 +49,17 @@ public class FridgeService {
 		Fridge fridge = fridgeRepository.findById(fridgeId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 		fridge.changeVisibility(request.isPublic());
-		return new FridgeResponse(fridge.getId(), fridge.getName(), MemberRole.OWNER, fridge.isPublic());
+		return new FridgeResponse(fridge.getId(), fridge.getName(), MemberRole.OWNER, fridge.isPublic(),
+			fridge.getShoppingDay());
+	}
+
+	// 장보기는 멤버가 함께 하므로 장보는 요일은 멤버 누구나 바꾼다. null이면 요일을 지운다
+	@Transactional
+	public FridgeResponse changeShoppingDay(Long userId, Long fridgeId, FridgeShoppingDayRequest request) {
+		FridgeMember member = fridgeMemberRepository.findByFridgeIdAndUserId(fridgeId, userId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		member.getFridge().changeShoppingDay(request.shoppingDay());
+		return FridgeResponse.from(member);
 	}
 
 }
