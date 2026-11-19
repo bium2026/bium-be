@@ -41,8 +41,9 @@ kamis:
   base-url: http://localhost:0
   connect-timeout: 1s
   read-timeout: 1s
-  # 테스트 중에는 예약 수집을 끈다
+  # 테스트 중에는 예약 수집과 서버를 켤 때의 수집을 끈다
   collect-cron: "-"
+  collect-on-startup: false
 
 nutrition-api:
   service-key: test-service-key
