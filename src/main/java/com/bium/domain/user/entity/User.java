@@ -30,10 +30,18 @@ public class User {
 	@Column(nullable = false, length = 10)
 	private String nickname;
 
+	// 유통기한 알림 메일을 받을 주소. 로그인은 loginId로 하므로 알림을 켤 때만 받는다
+	@Column(length = 255)
+	private String email;
+
 	public User(String loginId, String password, String nickname) {
 		this.loginId = loginId;
 		this.password = password;
 		this.nickname = nickname;
+	}
+
+	public void changeEmail(String email) {
+		this.email = email;
 	}
 
 }

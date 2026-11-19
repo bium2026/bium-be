@@ -18,7 +18,8 @@ Enum member_role {
 // ───────── 회원·냉장고·공유 ─────────
 Table users {
   id          bigint [pk, increment]
-  email       varchar(255) [unique, not null, note: '로그인 ID이자 유통기한 알림 메일 수신 주소']
+  login_id    varchar(20)  [unique, not null, note: '로그인 ID']
+  email       varchar(255) [note: '유통기한 알림 메일 수신 주소. 알림을 켤 때만 받는다(선택)']
   password    varchar(255) [not null, note: 'BCrypt 해시']
   nickname    varchar(30)  [not null]
   created_at  datetime

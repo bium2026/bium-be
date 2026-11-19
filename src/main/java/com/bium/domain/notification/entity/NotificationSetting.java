@@ -47,4 +47,11 @@ public class NotificationSetting {
 		this.notifyTime = notifyTime;
 	}
 
+	public void update(boolean enabled, LocalTime notifyTime, boolean notifyD3, boolean notifyDday) {
+		this.enabled = enabled;
+		this.notifyTime = notifyTime;
+		this.notifyD3 = notifyD3;
+		this.notifyDday = notifyDday;
+	}
+
 }
