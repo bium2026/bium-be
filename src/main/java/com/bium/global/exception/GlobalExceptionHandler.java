@@ -88,14 +88,30 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
 	}
 
-	// 잘못된 JSON, 없는 주소, 지원하지 않는 메서드 같은 Spring MVC 기본 예외도 공통 응답 형식으로 보낸다
+	// 잘못된 JSON, 없는 주소, 지원하지 않는 메서드 같은 Spring MVC 기본 예외도 공통 응답 형식으로 보낸다.
+	// 400(형식이 틀린 본문, 숫자 자리의 글자, 빠진 값)은 입력 검증 실패와 같은 INVALID_INPUT으로 알리고,
+	// 나머지도 영어 상태 문구 대신 한국어로 알린다
 	@Override
 	protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
 		HttpStatusCode statusCode, WebRequest request) {
 		HttpStatus status = HttpStatus.valueOf(statusCode.value());
+		if (status == HttpStatus.BAD_REQUEST) {
+			return ResponseEntity.badRequest()
+				.headers(headers)
+				.body(ApiResponse.error(ErrorCode.INVALID_INPUT.name(), "요청 형식이 올바르지 않습니다."));
+		}
 		return ResponseEntity.status(status)
 			.headers(headers)
-			.body(ApiResponse.error(status.name(), status.getReasonPhrase()));
+			.body(ApiResponse.error(status.name(), messageOf(status)));
+	}
+
+	private String messageOf(HttpStatus status) {
+		return switch (status) {
+			case NOT_FOUND -> "요청한 주소를 찾을 수 없습니다.";
+			case METHOD_NOT_ALLOWED -> "지원하지 않는 요청 방식입니다.";
+			case NOT_ACCEPTABLE, UNSUPPORTED_MEDIA_TYPE -> "지원하지 않는 요청 형식입니다.";
+			default -> "요청을 처리하지 못했습니다.";
+		};
 	}
 
 }
