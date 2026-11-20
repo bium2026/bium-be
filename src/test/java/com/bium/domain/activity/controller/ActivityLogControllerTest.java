@@ -1,5 +1,6 @@
 package com.bium.domain.activity.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -130,7 +131,8 @@ class ActivityLogControllerTest {
 			.andExpect(jsonPath("$.data[0].itemName").value("감자"))
 			.andExpect(jsonPath("$.data[1].action").value("ADD"))
 			.andExpect(jsonPath("$.data[1].nickname").value("선재"))
-			.andExpect(jsonPath("$.data[1].itemName").value("우유"));
+			.andExpect(jsonPath("$.data[1].itemName").value("우유"))
+			.andExpect(jsonPath("$.data[1].targetNickname").value(nullValue()));
 	}
 
 	@Test
@@ -160,14 +162,17 @@ class ActivityLogControllerTest {
 
 		getActivities(ownerToken)
 			.andExpect(jsonPath("$.data.length()").value(3))
-			// 내보내진 사람은 그 사람이 나간 것으로 남는다
-			.andExpect(jsonPath("$.data[0].action").value("LEAVE"))
-			.andExpect(jsonPath("$.data[0].nickname").value("선재"))
+			// 내보내기는 내보낸 주인이 행동한 것으로 남고, 내보내진 사람은 targetNickname에만 나온다
+			.andExpect(jsonPath("$.data[0].action").value("REMOVE"))
+			.andExpect(jsonPath("$.data[0].nickname").value("윤호"))
+			.andExpect(jsonPath("$.data[0].targetNickname").value("선재"))
 			.andExpect(jsonPath("$.data[0].itemName").doesNotExist())
 			.andExpect(jsonPath("$.data[1].action").value("LEAVE"))
 			.andExpect(jsonPath("$.data[1].nickname").value("강희"))
+			.andExpect(jsonPath("$.data[1].targetNickname").value(nullValue()))
 			.andExpect(jsonPath("$.data[2].action").value("JOIN"))
-			.andExpect(jsonPath("$.data[2].nickname").value("강희"));
+			.andExpect(jsonPath("$.data[2].nickname").value("강희"))
+			.andExpect(jsonPath("$.data[2].targetNickname").value(nullValue()));
 	}
 
 	@Test
