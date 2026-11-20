@@ -8,5 +8,6 @@ public enum ActivityAction {
 	DEDUCT,
 	RESTORE,
 	JOIN,
-	LEAVE
+	LEAVE,
+	REMOVE
 }
