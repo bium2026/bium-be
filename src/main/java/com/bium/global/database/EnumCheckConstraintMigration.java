@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,9 +27,11 @@ import lombok.extern.slf4j.Slf4j;
  * 그래서 enum에 값을 더하기 전에 만든 DB에서는 새 값을 저장할 수 없다.
  * 마이그레이션 도구 없이 ddl-auto로 표를 관리하므로, 서버를 켤 때 값이 빠진 제약을 지우고 지금 값으로 다시 만든다.
  * enum에 값을 더하면 TARGETS에 그 칸이 있어야 하고, 없으면 한 줄 더한다.
+ * 시세 채우기처럼 바깥 API를 기다리는 시작 작업보다 먼저 돌아야 그동안 새 값 저장이 막히지 않는다.
  */
 @Slf4j
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
 public class EnumCheckConstraintMigration implements ApplicationRunner {
 
