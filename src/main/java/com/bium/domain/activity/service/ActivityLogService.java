@@ -71,6 +71,17 @@ public class ActivityLogService {
 			.build());
 	}
 
+	// 주인이 멤버를 내보낸 기록을 주인이 행동한 것으로 남기고, 내보내진 사람은 targetUser에 남긴다
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void recordRemoval(Long ownerId, Long fridgeId, Long targetUserId) {
+		activityLogRepository.save(ActivityLog.builder()
+			.fridge(fridgeRepository.getReferenceById(fridgeId))
+			.user(userRepository.getReferenceById(ownerId))
+			.targetUser(userRepository.getReferenceById(targetUserId))
+			.action(ActivityAction.REMOVE)
+			.build());
+	}
+
 	@Transactional(readOnly = true)
 	public List<ActivityLogResponse> getRecent(Long userId, Long fridgeId) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);

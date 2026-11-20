@@ -55,6 +55,11 @@ public class ActivityLog {
 	@JoinColumn(name = "cooking_log_id")
 	private CookingLog cookingLog;
 
+	// 멤버를 내보낸 기록이면 내보내진 사람을 남긴다. 기록의 user는 내보낸 주인이다
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "target_user_id")
+	private User targetUser;
+
 	// 재료가 삭제된 뒤에도 기록에 이름이 보이도록 저장해 둔다
 	@Column(length = 50)
 	private String itemName;
@@ -72,7 +77,7 @@ public class ActivityLog {
 
 	@Builder
 	public ActivityLog(Fridge fridge, User user, FridgeItem fridgeItem, CookingLog cookingLog, String itemName,
-		ActivityAction action, String detail) {
+		ActivityAction action, String detail, User targetUser) {
 		this.fridge = fridge;
 		this.user = user;
 		this.fridgeItem = fridgeItem;
@@ -80,6 +85,7 @@ public class ActivityLog {
 		this.itemName = itemName;
 		this.action = action;
 		this.detail = detail;
+		this.targetUser = targetUser;
 	}
 
 }
