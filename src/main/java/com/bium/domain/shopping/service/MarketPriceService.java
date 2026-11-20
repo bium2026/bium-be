@@ -110,6 +110,11 @@ public class MarketPriceService {
 		return result;
 	}
 
+	@Transactional(readOnly = true)
+	public boolean hasAny() {
+		return marketPriceRepository.count() > 0;
+	}
+
 	private Map<String, MarketPrice> findSaved(Collection<String> kamisNames) {
 		return marketPriceRepository.findAllByItemNameIn(kamisNames).stream()
 			.collect(Collectors.toMap(MarketPrice::getItemName, Function.identity()));
