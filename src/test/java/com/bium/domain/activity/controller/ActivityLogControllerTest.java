@@ -160,6 +160,9 @@ class ActivityLogControllerTest {
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
 			.andExpect(status().isNoContent());
 
+		// 테스트 트랜잭션 안이라 조회가 메모리 엔티티를 돌려주므로, 비워서 DB에서 다시 읽은 값을 검증한다
+		em.flush();
+		em.clear();
 		getActivities(ownerToken)
 			.andExpect(jsonPath("$.data.length()").value(3))
 			// 내보내기는 내보낸 주인이 행동한 것으로 남고, 내보내진 사람은 targetNickname에만 나온다
