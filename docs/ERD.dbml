@@ -258,3 +258,13 @@ Table feed_saves {
   created_at datetime
   indexes { (user_id, fridge_id) [pk] }
 }
+
+Table feed_comments {
+  id         bigint [pk, increment]
+  fridge_id  bigint [ref: > fridges.id, not null]
+  user_id    bigint [ref: > users.id, not null, note: '코멘트를 쓴 사람']
+  content    varchar(200) [not null]
+  dish_name  varchar(50) [null, note: '음식을 추천한 코멘트일 때 추천한 음식 이름']
+  created_at datetime
+  indexes { (fridge_id, id) }
+}
