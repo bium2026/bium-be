@@ -25,6 +25,8 @@ public enum ErrorCode {
 	DUPLICATE_CATALOG_NAME(HttpStatus.CONFLICT, "이미 도감에 있는 재료입니다."),
 	PURCHASED_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장본 음식을 찾을 수 없습니다."),
 	SHOPPING_LIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장보기 목록에서 재료를 찾을 수 없습니다."),
+	FEED_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "코멘트를 찾을 수 없습니다."),
+	FEED_COMMENT_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "코멘트를 쓴 사람이나 냉장고 주인만 지울 수 있습니다."),
 	CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "다른 멤버가 먼저 수정했습니다. 새로고침한 뒤 다시 시도해 주세요."),
 	RECIPE_NOT_FOUND(HttpStatus.NOT_FOUND, "레시피를 찾을 수 없습니다."),
 	COOKING_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "요리 기록을 찾을 수 없습니다."),
