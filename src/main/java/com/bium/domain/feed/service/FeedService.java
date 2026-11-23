@@ -19,6 +19,7 @@ import com.bium.domain.feed.dto.FeedItemPreview;
 import com.bium.domain.feed.dto.FeedPageResponse;
 import com.bium.domain.feed.dto.FeedStoragePreview;
 import com.bium.domain.feed.dto.FeedStorages;
+import com.bium.domain.feed.repository.FeedCommentRepository;
 import com.bium.domain.feed.repository.FeedLikeRepository;
 import com.bium.domain.feed.repository.FeedSaveRepository;
 import com.bium.domain.feed.repository.FridgeIdCount;
@@ -63,6 +64,7 @@ public class FeedService {
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FeedLikeRepository feedLikeRepository;
 	private final FeedSaveRepository feedSaveRepository;
+	private final FeedCommentRepository feedCommentRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final Clock clock;
 
@@ -90,13 +92,18 @@ public class FeedService {
 
 	// 공개한 냉장고는 누구나 구경한다. 공개하지 않은 냉장고는 멤버만 피드에 어떻게 보일지 미리 본다
 	public FeedFridgeDetailResponse getFridge(Long userId, Long fridgeId) {
-		Fridge fridge = fridgeRepository.findById(fridgeId)
-			.filter(found -> found.isPublic() || fridgeAccessValidator.isMember(fridgeId, userId))
-			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		Fridge fridge = findViewableFridge(userId, fridgeId);
 		List<FridgeItem> items = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(
 			fridgeId);
 		FeedFridgeResponse summary = toResponses(userId, List.of(fridge), Map.of(fridgeId, items)).get(0);
 		return new FeedFridgeDetailResponse(summary, FridgeContentsResponse.from(items));
+	}
+
+	// 공개한 냉장고는 누구나, 공개하지 않은 냉장고는 멤버만 본다. 볼 수 없으면 있는지도 알 수 없게 없는 냉장고와 같은 오류를 준다
+	Fridge findViewableFridge(Long userId, Long fridgeId) {
+		return fridgeRepository.findById(fridgeId)
+			.filter(found -> found.isPublic() || fridgeAccessValidator.isMember(fridgeId, userId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 	}
 
 	// 공개하지 않은 냉장고는 있는지도 알 수 없게 없는 냉장고와 같은 오류를 준다
@@ -105,7 +112,7 @@ public class FeedService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
 	}
 
-	// 냉장고마다 쿼리가 나가지 않게 멤버·좋아요·저장을 냉장고 묶음으로 한 번씩 읽는다
+	// 냉장고마다 쿼리가 나가지 않게 멤버·좋아요·저장·코멘트 수를 냉장고 묶음으로 한 번씩 읽는다
 	private List<FeedFridgeResponse> toResponses(Long userId, List<Fridge> fridges,
 		Map<Long, List<FridgeItem>> itemsByFridge) {
 		if (fridges.isEmpty()) {
@@ -119,6 +126,8 @@ public class FeedService {
 			.collect(Collectors.toMap(FridgeIdCount::getFridgeId, FridgeIdCount::getTotal));
 		Set<Long> liked = new HashSet<>(feedLikeRepository.findFridgeIdsByUserIdAndFridgeIdIn(userId, fridgeIds));
 		Set<Long> saved = new HashSet<>(feedSaveRepository.findFridgeIdsByUserIdAndFridgeIdIn(userId, fridgeIds));
+		Map<Long, Long> commentCounts = feedCommentRepository.countByFridgeIdIn(fridgeIds).stream()
+			.collect(Collectors.toMap(FridgeIdCount::getFridgeId, FridgeIdCount::getTotal));
 		LocalDate today = LocalDate.now(clock);
 
 		return fridges.stream()
@@ -141,6 +150,7 @@ public class FeedService {
 					likeCounts.getOrDefault(fridgeId, 0L),
 					liked.contains(fridgeId),
 					saved.contains(fridgeId),
+					commentCounts.getOrDefault(fridgeId, 0L),
 					members.stream().anyMatch(member -> member.getUser().getId().equals(userId)));
 			})
 			.toList();
