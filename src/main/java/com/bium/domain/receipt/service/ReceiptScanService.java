@@ -4,13 +4,18 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.bium.domain.fridge.service.FridgeAccessValidator;
+import com.bium.domain.ingredient.entity.IngredientCatalog;
+import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
 import com.bium.domain.receipt.dto.ReceiptScanResponse;
 import com.bium.domain.receipt.scan.ReceiptItemParser;
 import com.bium.domain.recipe.recommendation.RecommendationRateLimiter;
@@ -46,7 +51,7 @@ public class ReceiptScanService {
 		- 봉투, 세제, 휴지 같은 먹을 수 없는 품목과 할인, 쿠폰, 포인트, 합계, 결제 정보 줄은 빼.
 		- name은 브랜드, 용량, 개수, 행사 문구를 빼고 사람들이 부르는 재료 이름으로 짧게 써.
 		  예: "서울우유 1L" → "우유", "비비고 왕교자 1.05kg" → "왕교자 만두"
-		- emoji는 그 재료를 나타내는 이모지 한 개로 써.
+		- emoji는 그 재료를 나타내는 이모지 한 개로 써. 맞는 이모지가 없으면 도형이나 기호로 채우지 말고 null로 써.
 		- storage는 집에서 보관할 곳으로 FRIDGE(냉장), FREEZER(냉동), ROOM(실온) 중 하나로 써.
 		- shelfLifeDays는 오늘 사서 그 보관 장소에 두었을 때 먹을 수 있는 대략적인 날 수야. 1부터 %d 사이 숫자로 쓰고, 모르면 null로 써.
 		- 품목은 영수증 순서대로 최대 %d개까지 넣어.
@@ -67,6 +72,7 @@ public class ReceiptScanService {
 	private final RecommendationRateLimiter rateLimiter;
 	private final GeminiClient geminiClient;
 	private final ReceiptItemParser itemParser;
+	private final IngredientCatalogRepository catalogRepository;
 	private final Clock clock;
 
 	public ReceiptScanResponse scan(Long userId, Long fridgeId, MultipartFile image) {
@@ -86,7 +92,26 @@ public class ReceiptScanService {
 			}
 			throw exception;
 		}
-		return new ReceiptScanResponse(itemParser.parse(text, LocalDate.now(clock)));
+		return new ReceiptScanResponse(useBasicCatalogEmoji(itemParser.parse(text, LocalDate.now(clock))));
+	}
+
+	// 기본 재료와 이름이 같으면 도감 아이콘을 쓴다. 모델이 고른 이모지가 재료마다 달라지거나, 두부처럼 맞는 이모지가 없는 재료에 엉뚱한 기호를 넣는 일을 막는다
+	private List<ReceiptScanResponse.Item> useBasicCatalogEmoji(List<ReceiptScanResponse.Item> items) {
+		if (items.isEmpty()) {
+			return items;
+		}
+		Map<String, String> basicEmojis = new HashMap<>();
+		for (IngredientCatalog catalog : catalogRepository.findAllByOwnerIsNullOrderByIdAsc()) {
+			if (catalog.getEmoji() != null && !catalog.getEmoji().isBlank()) {
+				basicEmojis.putIfAbsent(catalog.getName(), catalog.getEmoji());
+			}
+		}
+		return items.stream()
+			.map(item -> {
+				String emoji = basicEmojis.get(item.name());
+				return emoji == null ? item : new ReceiptScanResponse.Item(item.name(), emoji, item.storage(), item.expiresAt());
+			})
+			.toList();
 	}
 
 	private String getSupportedMimeType(MultipartFile image) {

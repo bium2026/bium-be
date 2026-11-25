@@ -148,7 +148,7 @@ class IngredientCatalogImageControllerTest {
 	@Test
 	void 같은_냉장고의_기본_재료도_사진을_올린_사람에게만_사진으로_보인다() throws Exception {
 		IngredientCatalog onion = catalog(null, "기본양파");
-		User other = em.createQuery("select u from User u where u.loginId = 'other'", User.class).getSingleResult();
+		User other = em.createQuery("select u from User u where u.email = 'other'", User.class).getSingleResult();
 		Fridge fridge = em.merge(new Fridge("함께 쓰는 냉장고"));
 		em.persist(new FridgeMember(fridge, user, MemberRole.OWNER));
 		em.persist(new FridgeMember(fridge, other, MemberRole.MEMBER));
