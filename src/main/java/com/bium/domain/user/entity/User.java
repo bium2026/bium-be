@@ -20,8 +20,9 @@ public class User {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, unique = true, length = 20)
-	private String loginId;
+	// 로그인에 쓰는 이메일. 아이디로 로그인하던 때 이메일 없이 만든 계정은 비어 있을 수 있다
+	@Column(unique = true, length = 255)
+	private String email;
 
 	// BCrypt로 암호화한 값
 	@Column(nullable = false)
@@ -30,19 +31,10 @@ public class User {
 	@Column(nullable = false, length = 10)
 	private String nickname;
 
-	// 유통기한 알림 메일을 받을 주소. 가입할 때 받고 알림 설정에서 바꿀 수 있다.
-	// 이메일 없이 가입한 기존 계정이 있고 알림을 끄면 지울 수도 있어 비워 둘 수 있다
-	@Column(length = 255)
-	private String email;
-
-	public User(String loginId, String password, String nickname) {
-		this.loginId = loginId;
+	public User(String email, String password, String nickname) {
+		this.email = email;
 		this.password = password;
 		this.nickname = nickname;
-	}
-
-	public void changeEmail(String email) {
-		this.email = email;
 	}
 
 }

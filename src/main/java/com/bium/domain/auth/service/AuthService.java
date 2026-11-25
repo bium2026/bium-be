@@ -29,17 +29,16 @@ public class AuthService {
 
 	@Transactional
 	public SignupResponse signup(SignupRequest request) {
-		if (userRepository.existsByLoginId(request.loginId())) {
-			throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
+		if (userRepository.existsByEmail(request.email())) {
+			throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
 		}
 
-		User user = new User(request.loginId(), passwordEncoder.encode(request.password()), request.nickname());
-		user.changeEmail(request.email());
+		User user = new User(request.email(), passwordEncoder.encode(request.password()), request.nickname());
 		try {
 			userRepository.save(user);
 		} catch (DataIntegrityViolationException e) {
-			// 같은 아이디로 동시에 가입하면 위 확인을 둘 다 통과하고 login_id 유니크 제약에서 걸린다
-			throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
+			// 같은 이메일로 동시에 가입하면 위 확인을 둘 다 통과하고 email 유니크 제약에서 걸린다
+			throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
 		}
 		// 같은 트랜잭션에서 만들어, 냉장고를 만들다 실패하면 가입도 취소되고 냉장고 없는 계정이 남지 않는다
 		fridgeService.createDefaultFridge(user);
@@ -47,9 +46,10 @@ public class AuthService {
 	}
 
 	public LoginResponse login(LoginRequest request) {
-		// 아이디가 없는 경우와 비밀번호가 틀린 경우를 구분하지 않아 가입된 아이디를 알아낼 수 없게 한다
-		User user = userRepository.findByLoginId(request.loginId())
+		// 이메일이 없는 경우와 비밀번호가 틀린 경우를 구분하지 않아 가입된 이메일을 알아낼 수 없게 한다
+		User user = userRepository.findAllByEmail(request.email()).stream()
 			.filter(found -> passwordEncoder.matches(request.password(), found.getPassword()))
+			.findFirst()
 			.orElseThrow(() -> new BusinessException(ErrorCode.LOGIN_FAILED));
 
 		return new LoginResponse(jwtProvider.createAccessToken(user.getId()), jwtProvider.getAccessTokenValiditySeconds());

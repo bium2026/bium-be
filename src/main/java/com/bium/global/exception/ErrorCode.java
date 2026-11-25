@@ -11,8 +11,8 @@ public enum ErrorCode {
 
 	INVALID_INPUT(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
-	LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다."),
-	DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
+	LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 일치하지 않습니다."),
+	DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입한 이메일입니다."),
 	FRIDGE_NOT_FOUND(HttpStatus.NOT_FOUND, "냉장고를 찾을 수 없습니다."),
 	FRIDGE_OWNER_ONLY(HttpStatus.FORBIDDEN, "냉장고 소유자만 할 수 있습니다."),
 	FRIDGE_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "냉장고 멤버를 찾을 수 없습니다."),
