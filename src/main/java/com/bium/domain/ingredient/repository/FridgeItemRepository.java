@@ -49,6 +49,11 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 		+ " and (:storage is null or i.storage = :storage) order by i.id")
 	List<FridgeItem> findAllWithCatalogByFridgeId(Long fridgeId, StorageType storage);
 
+	// 다음 구매 날짜 계산용. 지운·다 쓴 재료도 구매 기록이라 deleted_at으로 거르지 않고, 구매일이 있는 재료만 구매일, id 순서로 읽는다
+	@Query("select i from FridgeItem i left join fetch i.catalog where i.fridge.id = :fridgeId"
+		+ " and i.purchasedAt is not null order by i.purchasedAt, i.id")
+	List<FridgeItem> findAllPurchasedWithCatalogByFridgeId(Long fridgeId);
+
 	// 여러 재료를 함께 고칠 때 MySQL이 행을 잠그는 순서를 요청끼리 같게 하려고 id 순서로 가져온다
 	@Query("select i from FridgeItem i where i.id in :ids order by i.id")
 	List<FridgeItem> findAllByIdInOrderById(Collection<Long> ids);
