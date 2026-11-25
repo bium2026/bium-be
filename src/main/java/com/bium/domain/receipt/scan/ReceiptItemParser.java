@@ -39,6 +39,8 @@ public class ReceiptItemParser {
 	private static final Pattern NAME_CONTROL_CHARACTER = Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]+");
 	// 이모지는 여러 글자를 잇는 ZWJ(U+200D)가 형식 문자라서 형식 문자는 남긴다
 	private static final Pattern EMOJI_CONTROL_CHARACTER = Pattern.compile("[\\p{Cc}\\p{Zl}\\p{Zp}]+");
+	// 맞는 이모지가 없는 재료(두부 등)에 모델이 ⬜·■ 같은 도형을 넣는 일이 있다. 도형·상자 문자만으로 된 값은 아이콘으로 쓰지 않는다
+	private static final Pattern SHAPE_ONLY_EMOJI = Pattern.compile("[\\x{2500}-\\x{25FF}\\x{2B00}-\\x{2BFF}\\x{FFFD}\\x{FE0E}\\x{FE0F}]+");
 
 	private final ObjectMapper objectMapper;
 
@@ -114,7 +116,10 @@ public class ReceiptItemParser {
 			return null;
 		}
 		String emoji = EMOJI_CONTROL_CHARACTER.matcher(node.stringValue()).replaceAll("").strip();
-		return emoji.isEmpty() || emoji.length() > MAX_EMOJI_LENGTH ? null : emoji;
+		if (emoji.isEmpty() || emoji.length() > MAX_EMOJI_LENGTH || SHAPE_ONLY_EMOJI.matcher(emoji).matches()) {
+			return null;
+		}
+		return emoji;
 	}
 
 	// 대부분의 장본 식재료가 냉장 보관이라 알 수 없는 값은 냉장실로 둔다

@@ -1,5 +1,6 @@
 package com.bium.domain.receipt.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -24,6 +25,9 @@ import com.bium.domain.auth.service.JwtProvider;
 import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
+import com.bium.domain.ingredient.entity.IngredientCatalog;
+import com.bium.domain.ingredient.entity.IngredientCategory;
+import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.recipe.recommendation.RecommendationRateLimiter;
 import com.bium.domain.user.entity.User;
 import com.bium.global.gemini.GeminiClient;
@@ -73,6 +77,29 @@ class ReceiptScanControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.items.length()").value(1))
 			.andExpect(jsonPath("$.data.items[0].name").value("우유"));
+	}
+
+	@Test
+	void 기본_재료와_이름이_같으면_도감_아이콘을_쓰고_다른_재료는_모델_아이콘을_쓴다() throws Exception {
+		em.persist(IngredientCatalog.builder().name("두부").emoji("🧈").category(IngredientCategory.ETC)
+			.defaultStorage(StorageType.FRIDGE).shelfLifeDays(5).build());
+		em.persist(IngredientCatalog.builder().name("우유").emoji("🥛").category(IngredientCategory.ETC)
+			.defaultStorage(StorageType.FRIDGE).shelfLifeDays(10).build());
+		givenGeminiAnswers("""
+			{"isReceipt": true, "items": [
+			  {"receiptText": "풀무원 두부", "name": "두부", "emoji": "⬜", "storage": "FRIDGE", "shelfLifeDays": 5},
+			  {"receiptText": "서울우유 1L", "name": "우유", "emoji": "🍼", "storage": "FRIDGE", "shelfLifeDays": 10},
+			  {"receiptText": "곤약 300g", "name": "곤약", "emoji": "⬜", "storage": "FRIDGE", "shelfLifeDays": 30},
+			  {"receiptText": "비비고 왕교자", "name": "왕교자 만두", "emoji": "🥟", "storage": "FREEZER", "shelfLifeDays": 90}
+			]}
+			""");
+
+		scan()
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items[0].emoji").value("🧈"))
+			.andExpect(jsonPath("$.data.items[1].emoji").value("🥛"))
+			.andExpect(jsonPath("$.data.items[2].emoji").value(nullValue()))
+			.andExpect(jsonPath("$.data.items[3].emoji").value("🥟"));
 	}
 
 	@Test

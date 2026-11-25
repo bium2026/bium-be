@@ -66,6 +66,20 @@ class ReceiptItemParserTest {
 	}
 
 	@Test
+	void 도형이나_기호로만_된_아이콘은_비운다() {
+		List<ReceiptScanResponse.Item> items = parser.parse("""
+			{"isReceipt": true, "items": [
+			  {"receiptText": "풀무원 두부", "name": "두부", "emoji": "⬜", "storage": "FRIDGE", "shelfLifeDays": 5},
+			  {"receiptText": "곤약 300g", "name": "곤약", "emoji": "■", "storage": "FRIDGE", "shelfLifeDays": 30},
+			  {"receiptText": "커피 원두", "name": "원두", "emoji": "☕", "storage": "ROOM", "shelfLifeDays": 60},
+			  {"receiptText": "국산 대파 1단", "name": "대파", "emoji": "🌿", "storage": "FRIDGE", "shelfLifeDays": 7}
+			]}
+			""", TODAY);
+
+		assertThat(items).extracting(ReceiptScanResponse.Item::emoji).containsExactly(null, null, "☕", "🌿");
+	}
+
+	@Test
 	void 영수증이지만_식재료가_없으면_빈_목록을_돌려준다() {
 		assertThat(parser.parse("{\"isReceipt\": true, \"items\": []}", TODAY)).isEmpty();
 	}
