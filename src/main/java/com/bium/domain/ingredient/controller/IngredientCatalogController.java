@@ -8,9 +8,12 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.bium.domain.ingredient.dto.IngredientCatalogCreateRequest;
 import com.bium.domain.ingredient.dto.IngredientCatalogListResponse;
@@ -46,6 +49,21 @@ public class IngredientCatalogController {
 	public ResponseEntity<ApiResponse<Void>> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long catalogId) {
 		ingredientCatalogService.delete(Long.valueOf(jwt.getSubject()), catalogId);
 		return ResponseEntity.ok(ApiResponse.success(null));
+	}
+
+	// 사진은 multipart의 image 칸으로 받는다
+	@PutMapping("/{catalogId}/image")
+	public ResponseEntity<ApiResponse<IngredientCatalogResponse>> changeImage(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long catalogId, @RequestPart(required = false) MultipartFile image) {
+		return ResponseEntity.ok(ApiResponse.success(
+			ingredientCatalogService.changeImage(Long.valueOf(jwt.getSubject()), catalogId, image)));
+	}
+
+	@DeleteMapping("/{catalogId}/image")
+	public ResponseEntity<ApiResponse<IngredientCatalogResponse>> removeImage(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long catalogId) {
+		return ResponseEntity.ok(ApiResponse.success(
+			ingredientCatalogService.removeImage(Long.valueOf(jwt.getSubject()), catalogId)));
 	}
 
 	@PostMapping("/{catalogId}/favorite")

@@ -69,6 +69,10 @@ public class IngredientCatalog {
 	@Column(length = 10)
 	private String defaultUnit;
 
+	// 사용자가 이모지 대신 올린 사진(ingredient_images)의 키. 없으면 이모지를 보여 준다
+	@Column(length = 36)
+	private String imageKey;
+
 	@Builder
 	public IngredientCatalog(User owner, String name, String emoji, IngredientCategory category,
 		StorageType defaultStorage, Integer shelfLifeDays, Integer purchaseCycleDays, String defaultUnit) {
@@ -85,6 +89,10 @@ public class IngredientCatalog {
 	// 공용 도감(기본 재료)은 모든 사용자가 쓰고, 사용자가 지울 수 없다
 	public boolean isShared() {
 		return owner == null;
+	}
+
+	public void changeImageKey(String imageKey) {
+		this.imageKey = imageKey;
 	}
 
 	// 장 본 날부터 기본 유통기한만큼 더한 날을 유통기한으로 삼는다

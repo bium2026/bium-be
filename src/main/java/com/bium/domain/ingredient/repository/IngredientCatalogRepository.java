@@ -4,16 +4,25 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import com.bium.domain.ingredient.entity.IngredientCatalog;
+
+import jakarta.persistence.LockModeType;
 
 public interface IngredientCatalogRepository extends JpaRepository<IngredientCatalog, Long> {
 
 	List<IngredientCatalog> findAllByOwnerIdOrderByIdDesc(Long ownerId);
 
 	Optional<IngredientCatalog> findByIdAndOwnerId(Long id, Long ownerId);
+
+	// 사진을 바꾸는 요청이 겹치면 둘 다 옛 사진을 지우고 새 사진을 넣어, 늦게 커밋한 쪽이 아닌 사진이 연결 없이 남는다.
+	// 재료를 잠가 사진 바꾸기를 한 번에 하나씩 하게 한다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select c from IngredientCatalog c where c.id = :id and c.owner.id = :ownerId")
+	Optional<IngredientCatalog> findByIdAndOwnerIdForUpdate(Long id, Long ownerId);
 
 	boolean existsByOwnerIdAndName(Long ownerId, String name);
 

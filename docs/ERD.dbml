@@ -66,7 +66,15 @@ Table ingredient_catalog {
   shelf_life_days     int  [note: '기본 유통기한(일)']
   purchase_cycle_days int  [note: '기본 구매 주기(일)']
   default_unit        varchar(10)
+  image_key           varchar(36) [null, note: '이모지 대신 올린 사진(ingredient_images.image_key). 내가 추가한 재료만 올릴 수 있다']
   indexes { (owner_key, name) [unique] }
+}
+
+Table ingredient_images {
+  image_key    varchar(36) [pk, note: '무작위 키. 로그인 없이 받는 사진 주소(/api/ingredient-images/{image_key})에 쓴다']
+  content_type varchar(20) [not null, note: '서버가 다시 만든 image/png']
+  data         mediumblob [not null, note: '긴 변 256px 이하 PNG']
+  created_at   datetime
 }
 
 Table ingredient_favorites {   // 도감 즐겨찾기 (사용자별). 도감 목록에서 위쪽에 보여 준다
