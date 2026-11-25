@@ -3,6 +3,7 @@ package com.bium.domain.shopping.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +15,8 @@ import jakarta.persistence.LockModeType;
 public interface PurchasedItemRepository extends JpaRepository<PurchasedItem, Long> {
 
 	// 냉장고로 옮긴 장본 음식은 기록으로만 남아 있어 빼고 가져온다
+	// 응답에 도감 재료의 사진 주소를 담을 때 음식마다 쿼리가 나가지 않게 도감 재료를 함께 불러온다
+	@EntityGraph(attributePaths = "catalog")
 	List<PurchasedItem> findAllByFridgeIdAndMovedAtIsNullOrderByIdDesc(Long fridgeId);
 
 	// 냉장고를 먼저 잠그려고 장본 음식을 잠그기 전에 냉장고 id만 읽는다
