@@ -65,10 +65,11 @@ class ExpiryNotificationServiceTest {
 	void setUp() {
 		today = LocalDate.now(clock);
 		tenOClock = today.atTime(10, 0);
-		me = em.merge(new User("me", "password", "강희"));
-		me.changeEmail("me@bium.test");
+		// 로그인 이메일과 다른 주소로 받도록 해서 알림 설정의 주소로 보내는지 본다
+		me = em.merge(new User("login@bium.test", "password", "강희"));
 		myFridge = fridge("강희의 냉장고", me, MemberRole.OWNER);
 		setting = new NotificationSetting(me, NINE);
+		setting.changeEmail("me@bium.test");
 		em.persist(setting);
 	}
 
@@ -118,7 +119,7 @@ class ExpiryNotificationServiceTest {
 		setting.update(false, NINE, true, true);
 		assertThat(notificationService.sendDue(tenOClock)).isZero();
 		setting.update(true, NINE, true, true);
-		me.changeEmail(null);
+		setting.changeEmail(null);
 		assertThat(notificationService.sendDue(tenOClock)).isZero();
 
 		verify(mailSender, never()).send(any(SimpleMailMessage.class));
