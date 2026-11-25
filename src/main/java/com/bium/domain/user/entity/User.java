@@ -30,7 +30,8 @@ public class User {
 	@Column(nullable = false, length = 10)
 	private String nickname;
 
-	// 유통기한 알림 메일을 받을 주소. 로그인은 loginId로 하므로 알림을 켤 때만 받는다
+	// 유통기한 알림 메일을 받을 주소. 가입할 때 받고 알림 설정에서 바꿀 수 있다.
+	// 이메일 없이 가입한 기존 계정이 있고 알림을 끄면 지울 수도 있어 비워 둘 수 있다
 	@Column(length = 255)
 	private String email;
 

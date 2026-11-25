@@ -34,6 +34,7 @@ public class AuthService {
 		}
 
 		User user = new User(request.loginId(), passwordEncoder.encode(request.password()), request.nickname());
+		user.changeEmail(request.email());
 		try {
 			userRepository.save(user);
 		} catch (DataIntegrityViolationException e) {
