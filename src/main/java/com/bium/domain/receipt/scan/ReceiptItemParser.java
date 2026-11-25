@@ -22,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Gemini가 영수증에서 읽은 품목 JSON을 화면에 보여 줄 후보로 바꾼다.
  * 형식에 맞지 않는 값은 버리거나 비워서, 사용자가 화면에서 바로 고칠 수 있는 값만 돌려준다.
+ * 영수증이 아닌 사진에서도 보이는 음식을 재료로 지어내는 일이 있어, 영수증이라고 답하지 않으면 인식 실패로 알린다.
  */
 @Slf4j
 @Component
@@ -42,7 +43,13 @@ public class ReceiptItemParser {
 	private final ObjectMapper objectMapper;
 
 	public List<ReceiptScanResponse.Item> parse(String text, LocalDate today) {
-		JsonNode items = readJson(text).path("items");
+		JsonNode root = readJson(text);
+		JsonNode isReceipt = root.path("isReceipt");
+		if (!isReceipt.isBoolean() || !isReceipt.booleanValue()) {
+			throw new BusinessException(ErrorCode.RECEIPT_NOT_RECOGNIZED);
+		}
+
+		JsonNode items = root.path("items");
 		if (!items.isArray()) {
 			return List.of();
 		}
@@ -50,7 +57,8 @@ public class ReceiptItemParser {
 		List<ReceiptScanResponse.Item> result = new ArrayList<>();
 		for (JsonNode item : items) {
 			String name = toName(item.path("name"));
-			if (name == null) {
+			// 영수증에 적힌 상품명을 옮기지 못한 품목은 사진에 없는 재료를 지어낸 것일 수 있어 뺀다
+			if (name == null || !hasText(item.path("receiptText"))) {
 				continue;
 			}
 			Integer shelfLifeDays = toShelfLifeDays(item.path("shelfLifeDays"));
@@ -95,6 +103,10 @@ public class ReceiptItemParser {
 			name = name.substring(0, end).strip();
 		}
 		return name;
+	}
+
+	private boolean hasText(JsonNode node) {
+		return node.isString() && !node.stringValue().isBlank();
 	}
 
 	private String toEmoji(JsonNode node) {
