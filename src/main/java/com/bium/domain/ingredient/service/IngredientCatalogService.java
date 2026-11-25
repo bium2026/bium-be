@@ -3,12 +3,14 @@ package com.bium.domain.ingredient.service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.bium.domain.ingredient.dto.IngredientCatalogCreateRequest;
 import com.bium.domain.ingredient.dto.IngredientCatalogListResponse;
@@ -16,8 +18,10 @@ import com.bium.domain.ingredient.dto.IngredientCatalogResponse;
 import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.entity.IngredientFavorite;
 import com.bium.domain.ingredient.entity.IngredientFavoriteId;
+import com.bium.domain.ingredient.entity.IngredientImage;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
 import com.bium.domain.ingredient.repository.IngredientFavoriteRepository;
+import com.bium.domain.ingredient.repository.IngredientImageRepository;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
@@ -26,7 +30,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 식재료 도감을 다룬다. 사용자가 직접 추가한 재료(owner_id가 본인)와 공용 도감의 기본 재료(owner_id NULL)를 함께 보여 준다.
- * 기본 재료는 즐겨찾기와 냉장고에 넣기는 되지만, 사용자가 지울 수 없다.
+ * 기본 재료는 즐겨찾기와 냉장고에 넣기는 되지만, 사용자가 지우거나 사진을 바꿀 수 없다.
+ * 내가 추가한 재료에는 이모지 대신 사진을 올릴 수 있고, 그 재료로 넣은 냉장고 재료·장본 음식도 같은 사진을 보여 준다.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,6 +40,8 @@ public class IngredientCatalogService {
 
 	private final IngredientCatalogRepository ingredientCatalogRepository;
 	private final IngredientFavoriteRepository ingredientFavoriteRepository;
+	private final IngredientImageRepository ingredientImageRepository;
+	private final IngredientImageProcessor ingredientImageProcessor;
 	private final UserRepository userRepository;
 
 	// 즐겨찾기한 재료를 먼저 준다. 그 안에서는 내가 추가한 재료를 최근 순서로, 그다음 기본 재료를 넣은 순서로 준다.
@@ -97,6 +104,34 @@ public class IngredientCatalogService {
 		return IngredientCatalogResponse.from(catalog, false);
 	}
 
+	// 사진을 바꿀 때마다 새 키를 만들어, 화면이 옛 주소로 받아 둔 사진을 오래 캐시해도 새 사진과 섞이지 않게 한다
+	@Transactional
+	public IngredientCatalogResponse changeImage(Long userId, Long catalogId, MultipartFile image) {
+		byte[] png = ingredientImageProcessor.toPng(image);
+		IngredientCatalog catalog = lockMyCatalog(userId, catalogId);
+		String oldKey = catalog.getImageKey();
+		String newKey = UUID.randomUUID().toString();
+		ingredientImageRepository.save(new IngredientImage(newKey, IngredientImageProcessor.CONTENT_TYPE, png));
+		catalog.changeImageKey(newKey);
+		if (oldKey != null) {
+			ingredientImageRepository.deleteById(oldKey);
+		}
+		return IngredientCatalogResponse.from(catalog, isFavorite(userId, catalogId));
+	}
+
+	// 사진이 없는 재료여도 오류 없이 이모지를 보여 주는 결과를 준다
+	@Transactional
+	public IngredientCatalogResponse removeImage(Long userId, Long catalogId) {
+		IngredientCatalog catalog = lockMyCatalog(userId, catalogId);
+		deleteImage(catalog);
+		return IngredientCatalogResponse.from(catalog, isFavorite(userId, catalogId));
+	}
+
+	public IngredientImage getImage(String imageKey) {
+		return ingredientImageRepository.findById(imageKey)
+			.orElseThrow(() -> new BusinessException(ErrorCode.INGREDIENT_IMAGE_NOT_FOUND));
+	}
+
 	@Transactional
 	public void delete(Long userId, Long catalogId) {
 		IngredientCatalog catalog = findMyCatalog(userId, catalogId);
@@ -107,7 +142,26 @@ public class IngredientCatalogService {
 		ingredientCatalogRepository.detachShoppingListItems(catalogId);
 		ingredientCatalogRepository.detachRecipeIngredients(catalogId);
 		ingredientCatalogRepository.deleteFavorites(catalogId);
+		deleteImage(catalog);
 		ingredientCatalogRepository.delete(catalog);
+	}
+
+	private void deleteImage(IngredientCatalog catalog) {
+		String imageKey = catalog.getImageKey();
+		if (imageKey != null) {
+			catalog.changeImageKey(null);
+			ingredientImageRepository.deleteById(imageKey);
+		}
+	}
+
+	private boolean isFavorite(Long userId, Long catalogId) {
+		return ingredientFavoriteRepository.existsById(new IngredientFavoriteId(userId, catalogId));
+	}
+
+	// 기본 재료와 다른 사용자의 재료는 사진을 바꿀 수 없고, 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
+	private IngredientCatalog lockMyCatalog(Long userId, Long catalogId) {
+		return ingredientCatalogRepository.findByIdAndOwnerIdForUpdate(catalogId, userId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
 	}
 
 	// 다른 사용자의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다. 기본 재료도 지울 수 없어서 같은 오류를 준다
