@@ -19,7 +19,7 @@ Enum member_role {
 Table users {
   id          bigint [pk, increment]
   login_id    varchar(20)  [unique, not null, note: '로그인 ID']
-  email       varchar(255) [note: '유통기한 알림 메일 수신 주소. 알림을 켤 때만 받는다(선택)']
+  email       varchar(255) [note: '유통기한 알림 메일 수신 주소. 가입할 때 받고 알림 설정에서 바꾼다. 기존 계정은 비어 있을 수 있다']
   password    varchar(255) [not null, note: 'BCrypt 해시']
   nickname    varchar(30)  [not null]
   created_at  datetime
