@@ -30,9 +30,11 @@ import com.bium.domain.fridge.repository.FridgeMemberRepository;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
+import com.bium.domain.ingredient.dto.IngredientImageLookup;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
+import com.bium.domain.ingredient.service.IngredientImageLookupService;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 
@@ -66,6 +68,7 @@ public class FeedService {
 	private final FeedSaveRepository feedSaveRepository;
 	private final FeedCommentRepository feedCommentRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
+	private final IngredientImageLookupService ingredientImageLookupService;
 	private final Clock clock;
 
 	// cursor가 없으면 처음부터, 있으면 그 냉장고 다음부터 준다. savedOnly면 내가 저장한 냉장고만 준다
@@ -96,7 +99,8 @@ public class FeedService {
 		List<FridgeItem> items = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(
 			fridgeId);
 		FeedFridgeResponse summary = toResponses(userId, List.of(fridge), Map.of(fridgeId, items)).get(0);
-		return new FeedFridgeDetailResponse(summary, FridgeContentsResponse.from(items));
+		return new FeedFridgeDetailResponse(summary,
+			FridgeContentsResponse.from(items, ingredientImageLookupService.forItems(userId, items)));
 	}
 
 	// 공개한 냉장고는 누구나, 공개하지 않은 냉장고는 멤버만 본다. 볼 수 없으면 있는지도 알 수 없게 없는 냉장고와 같은 오류를 준다
@@ -129,6 +133,9 @@ public class FeedService {
 		Map<Long, Long> commentCounts = feedCommentRepository.countByFridgeIdIn(fridgeIds).stream()
 			.collect(Collectors.toMap(FridgeIdCount::getFridgeId, FridgeIdCount::getTotal));
 		LocalDate today = LocalDate.now(clock);
+		// 기본 재료 사진은 보는 사람이 직접 올린 것만 보이므로 보는 사람 기준으로 한 번에 읽는다
+		IngredientImageLookup images = ingredientImageLookupService.forItems(userId,
+			itemsByFridge.values().stream().flatMap(List::stream).toList());
 
 		return fridges.stream()
 			.map(fridge -> {
@@ -144,9 +151,9 @@ public class FeedService {
 					items.size(),
 					countExpiring(items, today),
 					new FeedStorages(
-						preview(items, StorageType.FRIDGE),
-						preview(items, StorageType.FREEZER),
-						preview(items, StorageType.ROOM)),
+						preview(items, StorageType.FRIDGE, images),
+						preview(items, StorageType.FREEZER, images),
+						preview(items, StorageType.ROOM, images)),
 					likeCounts.getOrDefault(fridgeId, 0L),
 					liked.contains(fridgeId),
 					saved.contains(fridgeId),
@@ -173,14 +180,14 @@ public class FeedService {
 			.count();
 	}
 
-	private FeedStoragePreview preview(List<FridgeItem> items, StorageType storage) {
+	private FeedStoragePreview preview(List<FridgeItem> items, StorageType storage, IngredientImageLookup images) {
 		List<FridgeItem> inStorage = items.stream()
 			.filter(item -> item.getStorage() == storage)
 			.sorted(DISPLAY_ORDER)
 			.toList();
 		return new FeedStoragePreview(inStorage.size(), inStorage.stream()
 			.limit(PREVIEW_SIZE)
-			.map(FeedItemPreview::from)
+			.map(item -> FeedItemPreview.from(item, images))
 			.toList());
 	}
 
