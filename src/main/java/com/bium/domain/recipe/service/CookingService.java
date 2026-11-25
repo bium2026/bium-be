@@ -20,6 +20,8 @@ import com.bium.domain.activity.service.ActivityLogService;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
+import com.bium.domain.ingredient.dto.IngredientImageLookup;
+import com.bium.domain.ingredient.service.IngredientImageLookupService;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.recipe.dto.CookingCandidatesResponse;
@@ -65,6 +67,7 @@ public class CookingService {
 	private final UserRepository userRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final ActivityLogService activityLogService;
+	private final IngredientImageLookupService ingredientImageLookupService;
 	private final Clock clock;
 
 	@Transactional(readOnly = true)
@@ -72,6 +75,7 @@ public class CookingService {
 		Recipe recipe = findAccessibleRecipe(userId, recipeId);
 		List<FridgeItem> fridgeItems = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNull(
 			recipe.getFridge().getId());
+		IngredientImageLookup images = ingredientImageLookupService.forItems(userId, fridgeItems);
 
 		// 소금·간장 같은 기본 양념은 냉장고에서 관리하지 않으므로 뺄 후보를 찾지 않는다
 		List<IngredientCandidates> ingredients = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(
@@ -81,7 +85,7 @@ public class CookingService {
 				fridgeItems.stream()
 					.filter(item -> IngredientMatcher.matches(ingredient.getName(), item.getName()))
 					.sorted(CANDIDATE_ORDER)
-					.map(FridgeItemResponse::from)
+					.map(item -> FridgeItemResponse.from(item, images))
 					.toList()))
 			.toList();
 		return new CookingCandidatesResponse(recipeId, ingredients);
