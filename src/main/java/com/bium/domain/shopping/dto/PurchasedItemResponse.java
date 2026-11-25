@@ -2,15 +2,15 @@ package com.bium.domain.shopping.dto;
 
 import java.time.LocalDate;
 
-import com.bium.domain.ingredient.dto.IngredientImagePaths;
+import com.bium.domain.ingredient.dto.IngredientImageLookup;
 import com.bium.domain.shopping.entity.PurchasedItem;
 
-// imageUrl은 이 음식을 담은 도감 재료에 올린 사진 주소다. 없으면 null이고 화면은 emoji를 보여 준다
+// imageUrl은 이 음식을 담은 도감 재료의 사진 주소다(IngredientImageLookup). 없으면 null이고 화면은 emoji를 보여 준다
 public record PurchasedItemResponse(Long id, String name, String emoji, String imageUrl, LocalDate expiresAt) {
 
-	public static PurchasedItemResponse from(PurchasedItem item) {
+	public static PurchasedItemResponse from(PurchasedItem item, IngredientImageLookup images) {
 		return new PurchasedItemResponse(item.getId(), item.getName(), item.getEmoji(),
-			IngredientImagePaths.of(item.getCatalog()), item.getExpiresAt());
+			images.urlOf(item.getCatalog()), item.getExpiresAt());
 	}
 
 }
