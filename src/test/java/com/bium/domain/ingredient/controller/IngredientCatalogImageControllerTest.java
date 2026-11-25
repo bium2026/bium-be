@@ -1,6 +1,8 @@
 package com.bium.domain.ingredient.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -118,16 +120,73 @@ class IngredientCatalogImageControllerTest {
 	}
 
 	@Test
-	void 기본_재료와_다른_사람의_재료에는_사진을_올릴_수_없다() throws Exception {
-		IngredientCatalog basic = catalog(null, "양파");
-
-		upload(basic.getId(), token, png(10, 10))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.error.code").value("CATALOG_NOT_FOUND"));
+	void 다른_사람의_재료에는_사진을_올릴_수_없다() throws Exception {
 		upload(tofu.getId(), otherToken, png(10, 10))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.error.code").value("CATALOG_NOT_FOUND"));
 		assertThat(countImages()).isZero();
+	}
+
+	@Test
+	void 기본_재료에_올린_사진은_올린_사람의_도감에만_보인다() throws Exception {
+		IngredientCatalog onion = catalog(null, "기본양파");
+
+		String path = readImageUrl(upload(onion.getId(), token, png(10, 10))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.basic").value(true))
+			.andReturn().getResponse().getContentAsString());
+		em.flush();
+		em.clear();
+
+		mockMvc.perform(get("/api/ingredient-catalogs").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+			.andExpect(jsonPath("$.data.ingredients[?(@.name == '기본양파')].imageUrl").value(path));
+		mockMvc.perform(get("/api/ingredient-catalogs").header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+			.andExpect(jsonPath("$.data.ingredients[?(@.name == '기본양파')].imageUrl").value(contains(nullValue())))
+			.andExpect(jsonPath("$.data.ingredients[?(@.name == '기본양파')].emoji").value("🥬"));
+	}
+
+	@Test
+	void 같은_냉장고의_기본_재료도_사진을_올린_사람에게만_사진으로_보인다() throws Exception {
+		IngredientCatalog onion = catalog(null, "기본양파");
+		User other = em.createQuery("select u from User u where u.loginId = 'other'", User.class).getSingleResult();
+		Fridge fridge = em.merge(new Fridge("함께 쓰는 냉장고"));
+		em.persist(new FridgeMember(fridge, user, MemberRole.OWNER));
+		em.persist(new FridgeMember(fridge, other, MemberRole.MEMBER));
+		persistItem(fridge, onion, "양파");
+		String path = readImageUrl(upload(onion.getId(), token, png(10, 10)).andReturn().getResponse()
+			.getContentAsString());
+		em.flush();
+		em.clear();
+
+		mockMvc.perform(get("/api/fridges/{fridgeId}/items", fridge.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+			.andExpect(jsonPath("$.data.fridge.center[0].imageUrl").value(path));
+		mockMvc.perform(get("/api/fridges/{fridgeId}/items", fridge.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+			.andExpect(jsonPath("$.data.fridge.center[0].imageUrl").isEmpty())
+			.andExpect(jsonPath("$.data.fridge.center[0].emoji").value("🥬"));
+	}
+
+	@Test
+	void 기본_재료_사진을_바꾸거나_지우면_내_사진만_바뀌고_다른_사람의_사진은_남는다() throws Exception {
+		IngredientCatalog onion = catalog(null, "기본양파");
+		String othersPath = readImageUrl(upload(onion.getId(), otherToken, png(10, 10)).andReturn().getResponse()
+			.getContentAsString());
+		String first = readImageUrl(upload(onion.getId(), token, png(10, 10)).andReturn().getResponse()
+			.getContentAsString());
+		String second = readImageUrl(upload(onion.getId(), token, png(20, 20)).andReturn().getResponse()
+			.getContentAsString());
+
+		assertThat(second).isNotEqualTo(first);
+		mockMvc.perform(get(first)).andExpect(status().isNotFound());
+		assertThat(countImages()).isEqualTo(2);
+
+		mockMvc.perform(delete("/api/ingredient-catalogs/{catalogId}/image", onion.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.imageUrl").isEmpty());
+		mockMvc.perform(get(second)).andExpect(status().isNotFound());
+		mockMvc.perform(get(othersPath)).andExpect(status().isOk());
 	}
 
 	@Test
@@ -160,17 +219,7 @@ class IngredientCatalogImageControllerTest {
 	void 사진을_올린_도감_재료로_넣은_냉장고_재료에도_사진_주소를_준다() throws Exception {
 		Fridge fridge = em.merge(new Fridge("사용자의 냉장고"));
 		em.persist(new FridgeMember(fridge, user, MemberRole.OWNER));
-		em.persist(FridgeItem.builder()
-			.fridge(fridge)
-			.catalog(tofu)
-			.name("두부")
-			.emoji("🥬")
-			.quantity(BigDecimal.ONE)
-			.storage(StorageType.FRIDGE)
-			.section(SectionType.CENTER)
-			.sortOrder(0)
-			.expiresAt(LocalDate.of(2026, 12, 1))
-			.build());
+		persistItem(fridge, tofu, "두부");
 		String path = readImageUrl(upload(tofu.getId(), token, png(10, 10)).andReturn().getResponse()
 			.getContentAsString());
 		em.flush();
@@ -192,6 +241,20 @@ class IngredientCatalogImageControllerTest {
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 			.andExpect(status().isOk());
 		mockMvc.perform(get(path)).andExpect(status().isNotFound());
+	}
+
+	private void persistItem(Fridge fridge, IngredientCatalog catalog, String name) {
+		em.persist(FridgeItem.builder()
+			.fridge(fridge)
+			.catalog(catalog)
+			.name(name)
+			.emoji("🥬")
+			.quantity(BigDecimal.ONE)
+			.storage(StorageType.FRIDGE)
+			.section(SectionType.CENTER)
+			.sortOrder(0)
+			.expiresAt(LocalDate.of(2026, 12, 1))
+			.build());
 	}
 
 	private ResultActions upload(Long catalogId, String accessToken, MockMultipartFile file) throws Exception {

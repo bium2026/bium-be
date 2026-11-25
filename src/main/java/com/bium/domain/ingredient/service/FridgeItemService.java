@@ -27,6 +27,7 @@ import com.bium.domain.ingredient.dto.FridgeItemPositionRequest;
 import com.bium.domain.ingredient.dto.FridgeContentsResponse;
 import com.bium.domain.ingredient.dto.FridgeItemResponse;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
+import com.bium.domain.ingredient.dto.IngredientImageLookup;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.IngredientCatalog;
 import com.bium.domain.ingredient.entity.SectionType;
@@ -56,6 +57,7 @@ public class FridgeItemService {
 	private final FridgeItemArranger fridgeItemArranger;
 	private final ActivityLogService activityLogService;
 	private final NutritionPrefetcher nutritionPrefetcher;
+	private final IngredientImageLookupService ingredientImageLookupService;
 	private final Clock clock;
 	private final EntityManager entityManager;
 
@@ -87,7 +89,7 @@ public class FridgeItemService {
 		activityLogService.recordItem(userId, item, ActivityAction.ADD);
 		// 수정 모달이나 영양 균형을 열 때 기다리지 않도록 영양 정보를 미리 찾아 둔다
 		nutritionPrefetcher.prefetchAfterCommit(List.of(item));
-		return FridgeItemResponse.from(item);
+		return FridgeItemResponse.from(item, ingredientImageLookupService.forItem(userId, item));
 	}
 
 	// 영수증에서 읽은 재료처럼 도감에 없는 재료를 한 번에 넣는다. 보관 위치마다 중앙 칸 맨 뒤에 보낸 순서대로 놓는다
@@ -121,14 +123,18 @@ public class FridgeItemService {
 		fridgeItemRepository.saveAll(items);
 		items.forEach(item -> activityLogService.recordItem(userId, item, ActivityAction.ADD));
 		nutritionPrefetcher.prefetchAfterCommit(items);
-		return new FridgeItemBulkCreateResponse(items.stream().map(FridgeItemResponse::from).toList());
+		// 영수증 재료는 도감과 이어지지 않아 사진이 없다
+		return new FridgeItemBulkCreateResponse(items.stream()
+			.map(item -> FridgeItemResponse.from(item, IngredientImageLookup.NONE))
+			.toList());
 	}
 
 	@Transactional(readOnly = true)
 	public FridgeContentsResponse getContents(Long userId, Long fridgeId) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		return FridgeContentsResponse.from(
-			fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(fridgeId));
+		List<FridgeItem> items = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(
+			fridgeId);
+		return FridgeContentsResponse.from(items, ingredientImageLookupService.forItems(userId, items));
 	}
 
 	public FridgeItemResponse update(Long userId, Long itemId, FridgeItemUpdateRequest request) {
@@ -143,7 +149,7 @@ public class FridgeItemService {
 		if (!item.getVersion().equals(request.version())) {
 			activityLogService.recordItem(userId, item, ActivityAction.UPDATE);
 		}
-		return FridgeItemResponse.from(item);
+		return FridgeItemResponse.from(item, ingredientImageLookupService.forItem(userId, item));
 	}
 
 	// 끌어다 놓은 칸의 원하는 위치로 옮긴다. 칸이 바뀔 때만 버전이 오르고 활동 기록을 남긴다
@@ -167,7 +173,7 @@ public class FridgeItemService {
 		if (sectionChanged) {
 			activityLogService.recordItem(userId, item, ActivityAction.MOVE);
 		}
-		return FridgeItemResponse.from(item);
+		return FridgeItemResponse.from(item, ingredientImageLookupService.forItem(userId, item));
 	}
 
 	// 기록을 남기기 위해 지우지 않고 삭제 시각만 적는다

@@ -13,11 +13,11 @@ import com.bium.domain.ingredient.entity.StorageType;
 public record FridgeContentsResponse(StorageContents fridge, StorageContents freezer, StorageContents room) {
 
 	// items는 칸 안 순서대로 정렬돼 있어야 한다
-	public static FridgeContentsResponse from(List<FridgeItem> items) {
+	public static FridgeContentsResponse from(List<FridgeItem> items, IngredientImageLookup images) {
 		return new FridgeContentsResponse(
-			StorageContents.of(items, StorageType.FRIDGE),
-			StorageContents.of(items, StorageType.FREEZER),
-			StorageContents.of(items, StorageType.ROOM));
+			StorageContents.of(items, StorageType.FRIDGE, images),
+			StorageContents.of(items, StorageType.FREEZER, images),
+			StorageContents.of(items, StorageType.ROOM, images));
 	}
 
 	public record StorageContents(
@@ -26,18 +26,18 @@ public record FridgeContentsResponse(StorageContents fridge, StorageContents fre
 		List<FridgeItemResponse> rightDoor
 	) {
 
-		private static StorageContents of(List<FridgeItem> items, StorageType storage) {
+		private static StorageContents of(List<FridgeItem> items, StorageType storage, IngredientImageLookup images) {
 			return new StorageContents(
-				filter(items, storage, SectionType.CENTER),
-				filter(items, storage, SectionType.LEFT_DOOR),
-				filter(items, storage, SectionType.RIGHT_DOOR));
+				filter(items, storage, SectionType.CENTER, images),
+				filter(items, storage, SectionType.LEFT_DOOR, images),
+				filter(items, storage, SectionType.RIGHT_DOOR, images));
 		}
 
 		private static List<FridgeItemResponse> filter(List<FridgeItem> items, StorageType storage,
-			SectionType section) {
+			SectionType section, IngredientImageLookup images) {
 			return items.stream()
 				.filter(item -> item.getStorage() == storage && item.getSection() == section)
-				.map(FridgeItemResponse::from)
+				.map(item -> FridgeItemResponse.from(item, images))
 				.toList();
 		}
 

@@ -25,6 +25,8 @@ import com.bium.domain.shopping.dto.PurchasedItemCreateRequest;
 import com.bium.domain.shopping.dto.PurchasedItemListResponse;
 import com.bium.domain.shopping.dto.PurchasedItemMoveRequest;
 import com.bium.domain.shopping.dto.PurchasedItemResponse;
+import com.bium.domain.ingredient.dto.IngredientImageLookup;
+import com.bium.domain.ingredient.service.IngredientImageLookupService;
 import com.bium.domain.shopping.entity.PurchaseSource;
 import com.bium.domain.shopping.entity.PurchasedItem;
 import com.bium.domain.shopping.repository.PurchasedItemRepository;
@@ -46,6 +48,7 @@ public class PurchasedItemService {
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final FridgeItemRepository fridgeItemRepository;
 	private final FridgeItemArranger fridgeItemArranger;
+	private final IngredientImageLookupService ingredientImageLookupService;
 	private final ActivityLogService activityLogService;
 	private final NutritionPrefetcher nutritionPrefetcher;
 	private final Clock clock;
@@ -70,17 +73,18 @@ public class PurchasedItemService {
 			.source(PurchaseSource.MANUAL)
 			.build();
 		purchasedItemRepository.save(item);
-		return PurchasedItemResponse.from(item);
+		return PurchasedItemResponse.from(item, ingredientImageLookupService.forCatalog(userId, item.getCatalog()));
 	}
 
 	// 냉장고 멤버가 함께 쓰는 목록이라 누가 담았는지와 상관없이 최근에 담은 순서로 준다
 	@Transactional(readOnly = true)
 	public PurchasedItemListResponse getItems(Long userId, Long fridgeId) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		List<PurchasedItemResponse> items = purchasedItemRepository
-			.findAllByFridgeIdAndMovedAtIsNullOrderByIdDesc(fridgeId)
-			.stream()
-			.map(PurchasedItemResponse::from)
+		List<PurchasedItem> found = purchasedItemRepository.findAllByFridgeIdAndMovedAtIsNullOrderByIdDesc(fridgeId);
+		IngredientImageLookup images = ingredientImageLookupService.forCatalogs(userId,
+			found.stream().map(PurchasedItem::getCatalog).toList());
+		List<PurchasedItemResponse> items = found.stream()
+			.map(item -> PurchasedItemResponse.from(item, images))
 			.toList();
 		return new PurchasedItemListResponse(items);
 	}
@@ -123,7 +127,7 @@ public class PurchasedItemService {
 		activityLogService.recordItem(userId, item, ActivityAction.ADD);
 		// 수정 모달이나 영양 균형을 열 때 기다리지 않도록 영양 정보를 미리 찾아 둔다
 		nutritionPrefetcher.prefetchAfterCommit(List.of(item));
-		return FridgeItemResponse.from(item);
+		return FridgeItemResponse.from(item, ingredientImageLookupService.forItem(userId, item));
 	}
 
 	// 잘못 담은 재료를 뺀다. 냉장고로 옮긴 장본 음식은 기록이라 뺄 수 없다
