@@ -13,7 +13,7 @@ import com.bium.domain.notification.entity.NotificationSetting;
 public interface NotificationSettingRepository extends JpaRepository<NotificationSetting, Long> {
 
 	// 알림을 켰고 받을 이메일이 있으며, 알림 시각이 지났는데 오늘 아직 보내지 않은 사용자
-	@Query("select s from NotificationSetting s join fetch s.user u where s.enabled = true and u.email is not null"
+	@Query("select s from NotificationSetting s join fetch s.user where s.enabled = true and s.email is not null"
 		+ " and s.notifyTime <= :now and (s.lastSentDate is null or s.lastSentDate < :today)")
 	List<NotificationSetting> findDue(LocalTime now, LocalDate today);
 

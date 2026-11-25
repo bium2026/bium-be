@@ -27,12 +27,12 @@ public class NotificationSettingService {
 	private final NotificationSettingRepository settingRepository;
 	private final UserRepository userRepository;
 
-	// 저장한 적이 없으면 기본값(켜짐, 9시, D-3·D-day)을 저장하지 않고 보여 준다
+	// 저장한 적이 없으면 기본값(로그인 이메일, 켜짐, 9시, D-3·D-day)을 저장하지 않고 보여 준다
 	public NotificationSettingResponse get(Long userId) {
-		User user = findUser(userId);
 		return settingRepository.findById(userId)
-			.map(setting -> toResponse(user, setting))
-			.orElseGet(() -> new NotificationSettingResponse(user.getEmail(), true, DEFAULT_NOTIFY_TIME, true, true, null));
+			.map(this::toResponse)
+			.orElseGet(() -> new NotificationSettingResponse(findUser(userId).getEmail(), true, DEFAULT_NOTIFY_TIME,
+				true, true, null));
 	}
 
 	// 받을 주소가 없으면 알림을 켤 수 없다
@@ -41,12 +41,11 @@ public class NotificationSettingService {
 		if (request.enabled() && request.email() == null) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_EMAIL_REQUIRED);
 		}
-		User user = findUser(userId);
-		user.changeEmail(request.email());
 		NotificationSetting setting = settingRepository.findById(userId)
-			.orElseGet(() -> settingRepository.save(new NotificationSetting(user, request.notifyTime())));
+			.orElseGet(() -> settingRepository.save(new NotificationSetting(findUser(userId), request.notifyTime())));
+		setting.changeEmail(request.email());
 		setting.update(request.enabled(), request.notifyTime(), request.notifyD3(), request.notifyDday());
-		return toResponse(user, setting);
+		return toResponse(setting);
 	}
 
 	private User findUser(Long userId) {
@@ -54,8 +53,8 @@ public class NotificationSettingService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 	}
 
-	private NotificationSettingResponse toResponse(User user, NotificationSetting setting) {
-		return new NotificationSettingResponse(user.getEmail(), setting.isEnabled(), setting.getNotifyTime(),
+	private NotificationSettingResponse toResponse(NotificationSetting setting) {
+		return new NotificationSettingResponse(setting.getEmail(), setting.isEnabled(), setting.getNotifyTime(),
 			setting.isNotifyD3(), setting.isNotifyDday(), setting.getLastSentDate());
 	}
 
