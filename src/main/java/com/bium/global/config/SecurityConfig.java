@@ -2,6 +2,7 @@ package com.bium.global.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -24,6 +25,8 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
 	private static final String AUTH_API = "/api/auth/**";
+	// <img>로 받는 재료 사진. 무작위 키가 든 주소라 로그인 없이 연다(IngredientImageController)
+	private static final String INGREDIENT_IMAGE_API = "/api/ingredient-images/*";
 
 	private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
@@ -40,6 +43,7 @@ public class SecurityConfig {
 				// 오류 응답을 만드는 내부 이동까지 막으면 공개 API의 오류도 401이 된다
 				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 				.requestMatchers(AUTH_API).permitAll()
+				.requestMatchers(HttpMethod.GET, INGREDIENT_IMAGE_API).permitAll()
 				.anyRequest().authenticated())
 			// Authorization: Bearer 헤더의 토큰을 JwtConfig의 JwtDecoder로 검증한다
 			.oauth2ResourceServer(oauth2 -> oauth2
@@ -56,11 +60,15 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder();
 	}
 
-	// 만료된 토큰이 붙은 채로 로그인·회원가입을 요청해도 401로 막히지 않도록 인증 API에서는 토큰을 읽지 않는다
+	// 만료된 토큰이 붙은 채로 로그인·회원가입이나 공개된 재료 사진을 요청해도 401로 막히지 않도록 이 주소들에서는 토큰을 읽지 않는다
 	private BearerTokenResolver bearerTokenResolver() {
 		DefaultBearerTokenResolver defaultResolver = new DefaultBearerTokenResolver();
 		RequestMatcher authApi = PathPatternRequestMatcher.withDefaults().matcher(AUTH_API);
-		return request -> authApi.matches(request) ? null : defaultResolver.resolve(request);
+		RequestMatcher imageApi = PathPatternRequestMatcher.withDefaults()
+			.matcher(HttpMethod.GET, INGREDIENT_IMAGE_API);
+		return request -> authApi.matches(request) || imageApi.matches(request)
+			? null
+			: defaultResolver.resolve(request);
 	}
 
 }
