@@ -5,6 +5,7 @@ import java.time.LocalTime;
 
 import com.bium.domain.user.entity.User;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -31,6 +32,10 @@ public class NotificationSetting {
 	@JoinColumn(name = "user_id")
 	private User user;
 
+	// 알림 메일을 받을 주소. 로그인 이메일과 따로 두어 알림을 끄고 지워도 로그인에는 영향이 없다
+	@Column(length = 255)
+	private String email;
+
 	private boolean enabled = true;
 
 	private LocalTime notifyTime;
@@ -45,6 +50,10 @@ public class NotificationSetting {
 	public NotificationSetting(User user, LocalTime notifyTime) {
 		this.user = user;
 		this.notifyTime = notifyTime;
+	}
+
+	public void changeEmail(String email) {
+		this.email = email;
 	}
 
 	public void update(boolean enabled, LocalTime notifyTime, boolean notifyD3, boolean notifyDday) {

@@ -69,15 +69,15 @@ class NotificationSettingControllerTest {
 
 	@BeforeEach
 	void setUp() {
-		me = em.merge(new User("me", "password", "강희"));
+		me = em.merge(new User("login@bium.test", "password", "강희"));
 		token = jwtProvider.createAccessToken(me.getId());
 	}
 
 	@Test
-	void 저장한_적이_없으면_기본값을_보여_준다() throws Exception {
+	void 저장한_적이_없으면_로그인_이메일과_기본값을_보여_준다() throws Exception {
 		perform(get("/api/notification-settings"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.email").doesNotExist())
+			.andExpect(jsonPath("$.data.email").value("login@bium.test"))
 			.andExpect(jsonPath("$.data.enabled").value(true))
 			.andExpect(jsonPath("$.data.notifyTime").value("09:00"))
 			.andExpect(jsonPath("$.data.notifyD3").value(true))
@@ -96,9 +96,10 @@ class NotificationSettingControllerTest {
 			.andExpect(jsonPath("$.data.email").value("me@bium.test"))
 			.andExpect(jsonPath("$.data.enabled").value(true))
 			.andExpect(jsonPath("$.data.notifyTime").value("08:30"));
+		// 받을 주소를 바꿔도 로그인 이메일은 그대로다
 		em.flush();
 		em.clear();
-		assertThat(em.find(User.class, me.getId()).getEmail()).isEqualTo("me@bium.test");
+		assertThat(em.find(User.class, me.getId()).getEmail()).isEqualTo("login@bium.test");
 	}
 
 	@Test
@@ -107,11 +108,16 @@ class NotificationSettingControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.code").value("NOTIFICATION_EMAIL_REQUIRED"));
 
-		// 알림을 끄면 이메일을 지울 수 있다
+		// 알림을 끄면 이메일을 지울 수 있고, 다시 불러와도 로그인 이메일로 채우지 않는다
 		save("{\"email\": \"\", \"enabled\": false, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.email").doesNotExist())
 			.andExpect(jsonPath("$.data.enabled").value(false));
+		perform(get("/api/notification-settings"))
+			.andExpect(jsonPath("$.data.email").doesNotExist());
+		em.flush();
+		em.clear();
+		assertThat(em.find(User.class, me.getId()).getEmail()).isEqualTo("login@bium.test");
 	}
 
 	@Test
@@ -126,12 +132,16 @@ class NotificationSettingControllerTest {
 
 	@Test
 	void 테스트_메일은_저장한_주소로_지금_기준_재료를_담아_보낸다() throws Exception {
+		// 받을 주소를 지웠으면 보내지 않는다
+		save("{\"email\": \"\", \"enabled\": false, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
+			.andExpect(status().isOk());
 		perform(post("/api/notification-settings/test-mail"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.code").value("NOTIFICATION_EMAIL_REQUIRED"));
 		verify(mailSender, never()).send(any(SimpleMailMessage.class));
 
-		me.changeEmail("me@bium.test");
+		save("{\"email\": \"me@bium.test\", \"enabled\": true, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
+			.andExpect(status().isOk());
 		Fridge fridge = em.merge(new Fridge("강희의 냉장고"));
 		em.persist(new FridgeMember(fridge, me, MemberRole.OWNER));
 		em.persist(FridgeItem.builder().fridge(fridge).name("우유").quantity(BigDecimal.ONE)
@@ -146,8 +156,15 @@ class NotificationSettingControllerTest {
 	}
 
 	@Test
+	void 설정을_저장한_적이_없으면_로그인_이메일로_테스트_메일을_보낸다() throws Exception {
+		perform(post("/api/notification-settings/test-mail"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sentTo").value("login@bium.test"));
+		verify(mailSender).send(any(SimpleMailMessage.class));
+	}
+
+	@Test
 	void 테스트_메일을_보내지_못하면_502를_반환하고_실패를_기록한다() throws Exception {
-		me.changeEmail("me@bium.test");
 		willThrow(new MailSendException("SMTP 연결 실패")).given(mailSender).send(any(SimpleMailMessage.class));
 
 		perform(post("/api/notification-settings/test-mail"))

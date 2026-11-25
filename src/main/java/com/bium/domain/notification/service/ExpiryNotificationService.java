@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
@@ -62,25 +63,30 @@ public class ExpiryNotificationService {
 				continue;
 			}
 			User user = setting.getUser();
-			if (send(user, composer.subject(items.size()), composer.body(user.getNickname(), items, today), items.size())) {
+			if (send(user, setting.getEmail(), composer.subject(items.size()),
+				composer.body(user.getNickname(), items, today), items.size())) {
 				sent++;
 			}
 		}
 		return sent;
 	}
 
-	// 알림 설정 화면의 '테스트 메일 보내기'. 오늘 알림을 보냈는지와 상관없이 지금 기준 재료로 바로 보낸다
+	// 알림 설정 화면의 '테스트 메일 보내기'. 오늘 알림을 보냈는지와 상관없이 지금 기준 재료로 바로 보낸다.
+	// 설정을 저장한 적이 없으면 화면에 기본값으로 보이는 로그인 이메일로 보낸다
 	public NotificationTestResponse sendTest(Long userId, LocalDate today) {
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
-		if (user.getEmail() == null) {
+		// 저장한 설정의 주소가 비어 있으면(알림을 끄고 지운 경우) 로그인 이메일로 보내지 않는다
+		Optional<NotificationSetting> setting = settingRepository.findById(userId);
+		String email = setting.isPresent() ? setting.get().getEmail() : user.getEmail();
+		if (email == null) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_EMAIL_REQUIRED);
 		}
 		List<FridgeItem> items = findItems(userId, List.of(today, today.plusDays(D3_DAYS)));
-		if (!send(user, composer.testSubject(), composer.testBody(user.getNickname(), items, today), items.size())) {
+		if (!send(user, email, composer.testSubject(), composer.testBody(user.getNickname(), items, today), items.size())) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_MAIL_FAILED);
 		}
-		return new NotificationTestResponse(user.getEmail(), items.size());
+		return new NotificationTestResponse(email, items.size());
 	}
 
 	private List<LocalDate> dates(NotificationSetting setting, LocalDate today) {
@@ -102,9 +108,9 @@ public class ExpiryNotificationService {
 	}
 
 	// 보낸 결과를 성공·실패 모두 기록한다
-	private boolean send(User user, String subject, String text, int itemCount) {
+	private boolean send(User user, String email, String subject, String text, int itemCount) {
 		try {
-			mailSender.send(user.getEmail(), subject, text);
+			mailSender.send(email, subject, text);
 			transactionTemplate.executeWithoutResult(status ->
 				logRepository.save(new NotificationLog(user, itemCount, NotificationStatus.SUCCESS, null)));
 			return true;
