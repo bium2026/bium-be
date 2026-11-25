@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -17,9 +18,12 @@ import jakarta.persistence.LockModeType;
 
 public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 
+	// 응답에 도감 재료의 사진 주소를 담을 때 재료마다 쿼리가 나가지 않게 도감 재료를 함께 불러온다(아래 두 조회도 같다)
+	@EntityGraph(attributePaths = "catalog")
 	List<FridgeItem> findAllByFridgeIdAndDeletedAtIsNull(Long fridgeId);
 
 	// 칸 안에서 보여 줄 순서대로 가져온다. 순서가 같으면 먼저 넣은 재료가 앞에 온다
+	@EntityGraph(attributePaths = "catalog")
 	List<FridgeItem> findAllByFridgeIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(Long fridgeId);
 
 	// 유통기한 알림 메일에 넣을 재료. 내가 멤버인 모든 냉장고에서 유통기한이 dates 중 하루인 재료를 냉장고 이름과 함께 가져온다
@@ -29,6 +33,7 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 	List<FridgeItem> findExpiringForUser(Long userId, Collection<LocalDate> dates);
 
 	// 피드 목록에서 냉장고마다 쿼리가 나가지 않게 여러 냉장고의 재료를 칸 안 순서대로 한 번에 가져온다
+	@EntityGraph(attributePaths = "catalog")
 	@Query("select i from FridgeItem i where i.fridge.id in :fridgeIds and i.deletedAt is null order by i.sortOrder, i.id")
 	List<FridgeItem> findAllByFridgeIdInOrderBySortOrder(Collection<Long> fridgeIds);
 
