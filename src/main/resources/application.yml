@@ -41,8 +41,9 @@ notification:
   scheduler-enabled: true
 
 cors:
-  # 쉼표로 구분한 프론트 주소 목록
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  # 쉼표로 구분한 프론트 주소 목록. *(하위 도메인)와 [*](모든 포트) 패턴을 쓸 수 있다.
+  # 기본값은 로컬 개발 서버(포트 상관없이)와 ngrok으로 연 주소다
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:[*],https://*.ngrok-free.app,https://*.ngrok.app}
 
 jwt:
   # HS256 서명 키, 32바이트 이상 (예: openssl rand -base64 32)
