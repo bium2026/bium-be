@@ -1,6 +1,7 @@
 package com.bium.domain.feed.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -22,8 +23,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 피드 냉장고를 구경한 사람이 남기는 코멘트와 음식 추천.
- * 코멘트는 공개한 냉장고에만 쓸 수 있고, 보기·지우기는 피드 냉장고를 볼 수 있는 사람(공개 냉장고는 누구나, 아니면 멤버)만 한다.
- * 지우기는 쓴 사람이나 냉장고 주인만 할 수 있다.
+ * 코멘트는 공개한 냉장고에만 쓸 수 있고, 보기는 피드 냉장고를 볼 수 있는 사람(공개 냉장고는 누구나, 아니면 멤버)만 한다.
+ * 지우기는 쓴 사람이나 냉장고 주인만 할 수 있다. 쓴 사람은 냉장고가 비공개로 바뀐 뒤에도 자기 코멘트를 지울 수 있다.
  */
 @Service
 @RequiredArgsConstructor
@@ -65,10 +66,15 @@ public class FeedCommentService {
 
 	@Transactional
 	public void delete(Long userId, Long fridgeId, Long commentId) {
+		Optional<FeedComment> found = feedCommentRepository.findByIdAndFridgeId(commentId, fridgeId);
+		if (found.isPresent() && found.get().getUser().getId().equals(userId)) {
+			feedCommentRepository.delete(found.get());
+			return;
+		}
+		// 자기 코멘트가 아니면 냉장고를 볼 수 있는지 먼저 확인해, 볼 수 없는 냉장고의 코멘트가 있는지 알 수 없게 한다
 		feedService.findViewableFridge(userId, fridgeId);
-		FeedComment comment = feedCommentRepository.findByIdAndFridgeId(commentId, fridgeId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.FEED_COMMENT_NOT_FOUND));
-		if (!comment.getUser().getId().equals(userId) && !isOwner(fridgeId, userId)) {
+		FeedComment comment = found.orElseThrow(() -> new BusinessException(ErrorCode.FEED_COMMENT_NOT_FOUND));
+		if (!isOwner(fridgeId, userId)) {
 			throw new BusinessException(ErrorCode.FEED_COMMENT_DELETE_FORBIDDEN);
 		}
 		feedCommentRepository.delete(comment);

@@ -157,6 +157,53 @@ class FeedCommentServiceTest {
 	}
 
 	@Test
+	void 냉장고가_비공개로_바뀌어도_쓴_사람은_자기_코멘트를_지운다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+		fridge.changeVisibility(false);
+
+		feedCommentService.delete(viewer.getId(), fridge.getId(), comment.getId());
+
+		assertThat(em.find(FeedComment.class, comment.getId())).isNull();
+	}
+
+	@Test
+	void 냉장고가_비공개로_바뀌어도_주인은_다른_사람이_쓴_코멘트를_지운다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+		fridge.changeVisibility(false);
+
+		feedCommentService.delete(owner.getId(), fridge.getId(), comment.getId());
+
+		assertThat(em.find(FeedComment.class, comment.getId())).isNull();
+	}
+
+	@Test
+	void 비공개로_바뀐_냉장고의_남의_코멘트는_멤버가_아니면_있는지도_알_수_없다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+		fridge.changeVisibility(false);
+
+		assertThatThrownBy(() -> feedCommentService.delete(stranger.getId(), fridge.getId(), comment.getId()))
+			.isInstanceOf(BusinessException.class)
+			.extracting("errorCode").isEqualTo(ErrorCode.FRIDGE_NOT_FOUND);
+		assertThatThrownBy(() -> feedCommentService.delete(member.getId(), fridge.getId(), comment.getId()))
+			.isInstanceOf(BusinessException.class)
+			.extracting("errorCode").isEqualTo(ErrorCode.FEED_COMMENT_DELETE_FORBIDDEN);
+		assertThat(em.find(FeedComment.class, comment.getId())).isNotNull();
+	}
+
+	@Test
+	void 비공개로_바뀐_냉장고의_자기_코멘트도_다른_냉장고_주소로는_지울_수_없다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+		fridge.changeVisibility(false);
+		Fridge other = em.merge(new Fridge("도윤의 냉장고"));
+		em.persist(new FridgeMember(other, stranger, MemberRole.OWNER));
+
+		assertThatThrownBy(() -> feedCommentService.delete(viewer.getId(), other.getId(), comment.getId()))
+			.isInstanceOf(BusinessException.class)
+			.extracting("errorCode").isEqualTo(ErrorCode.FRIDGE_NOT_FOUND);
+		assertThat(em.find(FeedComment.class, comment.getId())).isNotNull();
+	}
+
+	@Test
 	void 다른_냉장고의_코멘트_id로는_지울_수_없다() {
 		FeedComment comment = comment(viewer, "구경 잘 했어요");
 		Fridge other = em.merge(new Fridge("윤호의 냉장고"));
