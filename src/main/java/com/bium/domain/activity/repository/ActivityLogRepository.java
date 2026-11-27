@@ -1,5 +1,6 @@
 package com.bium.domain.activity.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
@@ -15,5 +16,12 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
 	@Query("select a from ActivityLog a join fetch a.user left join fetch a.targetUser "
 		+ "left join fetch a.cookingLog where a.fridge.id = :fridgeId order by a.createdAt desc, a.id desc")
 	List<ActivityLog> findRecentWithUserByFridgeId(Long fridgeId, Pageable pageable);
+
+	// 위와 같은 순서로, (createdAt, id)가 주어진 기록보다 앞선(더 오래된) 기록만 읽는다
+	@Query("select a from ActivityLog a join fetch a.user left join fetch a.targetUser "
+		+ "left join fetch a.cookingLog where a.fridge.id = :fridgeId "
+		+ "and (a.createdAt < :createdAt or (a.createdAt = :createdAt and a.id < :id)) "
+		+ "order by a.createdAt desc, a.id desc")
+	List<ActivityLog> findWithUserByFridgeIdBefore(Long fridgeId, LocalDateTime createdAt, Long id, Pageable pageable);
 
 }
