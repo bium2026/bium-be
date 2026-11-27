@@ -44,7 +44,10 @@ public class NotificationSetting {
 
 	private boolean notifyDday = true;
 
-	// 같은 날 중복 발송 방지
+	// 그날 보낼 차례를 잡은 날. 같은 날 두 번 보내지 않게 하며, 알릴 재료가 없거나 보내지 못한 날도 적는다
+	private LocalDate lastCheckedDate;
+
+	// 예약 알림 메일을 실제로 보낸 마지막 날
 	private LocalDate lastSentDate;
 
 	public NotificationSetting(User user, LocalTime notifyTime) {

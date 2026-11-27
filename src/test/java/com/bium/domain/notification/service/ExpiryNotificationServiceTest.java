@@ -154,7 +154,7 @@ class ExpiryNotificationServiceTest {
 
 		item(myFridge, "우유", today);
 		setting = reloadSetting();
-		em.createQuery("update NotificationSetting s set s.lastSentDate = null").executeUpdate();
+		em.createQuery("update NotificationSetting s set s.lastCheckedDate = null").executeUpdate();
 		assertThat(notificationService.sendDue(tenOClock)).isEqualTo(1);
 		assertThat(sentMail().getText()).contains("우유").doesNotContain("두부");
 	}
@@ -170,6 +170,38 @@ class ExpiryNotificationServiceTest {
 		NotificationLog log = singleLog();
 		assertThat(log.getStatus()).isEqualTo(NotificationStatus.FAIL);
 		assertThat(log.getErrorMessage()).contains("SMTP 연결 실패");
+		// 보내지 못한 날은 마지막으로 보낸 날이 아니다
+		NotificationSetting reloaded = reloadSetting();
+		assertThat(reloaded.getLastCheckedDate()).isEqualTo(today);
+		assertThat(reloaded.getLastSentDate()).isNull();
+	}
+
+	@Test
+	void 알릴_재료가_없거나_D_3와_D_day를_모두_꺼서_보내지_않은_날은_마지막으로_보낸_날을_바꾸지_않는다() {
+		item(myFridge, "당근", today.plusDays(4));
+
+		assertThat(notificationService.sendDue(tenOClock)).isZero();
+		NotificationSetting reloaded = reloadSetting();
+		assertThat(reloaded.getLastCheckedDate()).isEqualTo(today);
+		assertThat(reloaded.getLastSentDate()).isNull();
+
+		item(myFridge, "우유", today);
+		reloaded.update(true, NINE, false, false);
+		em.createQuery("update NotificationSetting s set s.lastCheckedDate = null").executeUpdate();
+		assertThat(notificationService.sendDue(tenOClock)).isZero();
+		assertThat(reloadSetting().getLastSentDate()).isNull();
+		verify(mailSender, never()).send(any(SimpleMailMessage.class));
+	}
+
+	@Test
+	void 예전처럼_마지막으로_보낸_날로_오늘_차례를_잡은_줄은_다시_보내지_않는다() {
+		item(myFridge, "우유", today);
+		em.createQuery("update NotificationSetting s set s.lastSentDate = :today")
+			.setParameter("today", today)
+			.executeUpdate();
+
+		assertThat(notificationService.sendDue(tenOClock)).isZero();
+		verify(mailSender, never()).send(any(SimpleMailMessage.class));
 	}
 
 	private SimpleMailMessage sentMail() {

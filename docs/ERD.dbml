@@ -249,7 +249,8 @@ Table notification_settings {   // 알림은 이메일로 보낸다
   notify_time     time
   notify_d3       boolean [default: true]
   notify_dday     boolean [default: true]
-  last_sent_date  date [note: '같은 날 중복 발송 방지']
+  last_checked_date date [note: '그날 보낼 차례를 잡은 날. 같은 날 중복 발송 방지']
+  last_sent_date  date [note: '예약 알림 메일을 실제로 보낸 마지막 날']
 }
 
 Table notification_logs {
