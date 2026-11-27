@@ -49,6 +49,8 @@ jwt:
   # HS256 서명 키, 32바이트 이상 (예: openssl rand -base64 32)
   secret: ${JWT_SECRET}
   access-token-validity: 1h
+  # 액세스 토큰이 만료되면 다시 로그인하지 않고 새 토큰을 받는 리프레시 토큰의 유효 기간. 갱신할 때마다 새로 받는다
+  refresh-token-validity: 14d
 
 gemini:
   api-key: ${GEMINI_API_KEY:}

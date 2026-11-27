@@ -25,6 +25,15 @@ Table users {
   updated_at  datetime
 }
 
+Table refresh_tokens {   // 액세스 토큰이 만료되면 다시 로그인하지 않고 새 토큰을 받는 데 쓴다
+  id          bigint [pk, increment]
+  user_id     bigint [ref: > users.id, not null]
+  token_hash  varchar(64) [unique, not null, note: '토큰 원문의 SHA-256 해시. 원문은 저장하지 않는다']
+  expires_at  datetime [not null, note: '발급 후 14일. 갱신하면 지우고 새 토큰을 만든다(회전)']
+  created_at  datetime
+  Note: '로그아웃하면 그 토큰을, 비밀번호를 바꾸거나 탈퇴하면 그 사람의 토큰을 모두 지운다'
+}
+
 Table fridges {
   id          bigint [pk, increment]
   name        varchar(50) [not null]
