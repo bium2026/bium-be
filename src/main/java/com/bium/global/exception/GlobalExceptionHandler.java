@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -80,12 +81,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.INVALID_INPUT));
 	}
 
-	// spring.servlet.multipart의 크기 제한을 넘은 사진
+	// spring.servlet.multipart의 크기 제한(영수증 사진에 맞춘 10MB)을 넘은 사진.
+	// 도감 사진은 5MB까지라 영수증 문구 대신 도감 사진의 한도로 알린다(IngredientImageProcessor)
 	@Override
 	protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex,
 		HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-		ErrorCode errorCode = ErrorCode.IMAGE_TOO_LARGE;
+		ErrorCode errorCode = isIngredientImageUpload(request)
+			? ErrorCode.INGREDIENT_IMAGE_TOO_LARGE
+			: ErrorCode.IMAGE_TOO_LARGE;
 		return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode));
+	}
+
+	// 도감에서 파일을 받는 곳은 사진 올리기(PUT /api/ingredient-catalogs/{catalogId}/image)뿐이다
+	private boolean isIngredientImageUpload(WebRequest request) {
+		return request instanceof ServletWebRequest servletRequest
+			&& servletRequest.getRequest().getRequestURI().startsWith("/api/ingredient-catalogs/");
 	}
 
 	// 잘못된 JSON, 없는 주소, 지원하지 않는 메서드 같은 Spring MVC 기본 예외도 공통 응답 형식으로 보낸다.
