@@ -93,7 +93,7 @@ class CookingControllerTest {
 			.andExpect(jsonPath("$.data.ingredients[0].amount").value("1모"))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates.length()").value(3))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].id").value(earlyTofu.getId()))
-			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].name").value("순두부"))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].name").value("두부 한 모"))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].version").value(0))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].expired").value(false))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[1].id").value(lateTofu.getId()))
