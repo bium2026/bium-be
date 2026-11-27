@@ -188,10 +188,32 @@ class CookingControllerTest {
 	}
 
 	@Test
-	void 뺄_재료를_보내지_않으면_400을_반환한다() throws Exception {
+	void 뺄_재료가_없어도_요리_기록을_남기고_되돌릴_수_있다() throws Exception {
+		FridgeItem tofu = item("두부", null);
+
 		cook(recipe.getId(), memberToken, "")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.recipeId").value(recipe.getId()))
+			.andExpect(jsonPath("$.data.deductedItemIds.length()").value(0));
+		Long cookingLogId = em.createQuery("select l.id from CookingLog l", Long.class).getSingleResult();
+		assertThat(reload(tofu).isDeleted()).isFalse();
+
+		undo(cookingLogId, memberToken)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.restoredItemIds.length()").value(0));
+		assertThat(em.find(CookingLog.class, cookingLogId).isUndone()).isTrue();
+		assertThat(reload(tofu).isDeleted()).isFalse();
+	}
+
+	@Test
+	void 재료_목록을_보내지_않으면_400을_반환한다() throws Exception {
+		mockMvc.perform(post("/api/recipes/{recipeId}/cooking-logs", recipe.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.error.message").value("요리에 쓴 재료를 선택해 주세요."));
+			.andExpect(jsonPath("$.error.message").value("요리에 쓴 재료 목록을 보내 주세요."));
+		assertThat(countCookingLogs()).isZero();
 	}
 
 	@Test
