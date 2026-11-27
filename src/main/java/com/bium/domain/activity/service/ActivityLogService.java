@@ -1,12 +1,15 @@
 package com.bium.domain.activity.service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.activity.dto.ActivityLogPageResponse;
 import com.bium.domain.activity.dto.ActivityLogResponse;
 import com.bium.domain.activity.entity.ActivityAction;
 import com.bium.domain.activity.entity.ActivityLog;
@@ -16,6 +19,8 @@ import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.recipe.entity.CookingLog;
 import com.bium.domain.user.repository.UserRepository;
+import com.bium.global.exception.BusinessException;
+import com.bium.global.exception.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class ActivityLogService {
 
-	private static final int RECENT_LIMIT = 50;
+	static final int PAGE_SIZE = 50;
 
 	private final ActivityLogRepository activityLogRepository;
 	private final FridgeRepository fridgeRepository;
@@ -82,12 +87,43 @@ public class ActivityLogService {
 			.build());
 	}
 
+	// cursor가 없으면 최근 기록부터, 있으면 그 기록 다음(더 오래된 기록)부터 준다
 	@Transactional(readOnly = true)
-	public List<ActivityLogResponse> getRecent(Long userId, Long fridgeId) {
+	public ActivityLogPageResponse getPage(Long userId, Long fridgeId, Long cursor) {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
-		return activityLogRepository.findRecentWithUserByFridgeId(fridgeId, PageRequest.of(0, RECENT_LIMIT)).stream()
-			.map(ActivityLogResponse::from)
-			.toList();
+		// 한 개를 더 읽어 다음 페이지가 있는지 본다
+		List<ActivityLog> logs = cursor == null
+			? activityLogRepository.findRecentWithUserByFridgeId(fridgeId, PageRequest.of(0, PAGE_SIZE + 1))
+			: findBefore(fridgeId, findCursor(fridgeId, cursor), PAGE_SIZE + 1);
+
+		List<ActivityLog> shown = new ArrayList<>(logs.subList(0, Math.min(logs.size(), PAGE_SIZE)));
+		ActivityLog next = logs.size() > PAGE_SIZE ? logs.get(PAGE_SIZE) : null;
+		// 요리 하나로 남긴 기록은 화면에서 한 줄로 묶는다. 페이지 사이에서 나뉘면 앞 페이지에 재료 일부만 보이므로,
+		// 마지막 기록과 같은 요리·같은 동작인 기록은 이 페이지에 이어 붙인다
+		while (next != null && isSameCooking(shown.get(shown.size() - 1), next)) {
+			shown.add(next);
+			next = findBefore(fridgeId, next, 1).stream().findFirst().orElse(null);
+		}
+		Long nextCursor = next == null ? null : shown.get(shown.size() - 1).getId();
+		return new ActivityLogPageResponse(shown.stream().map(ActivityLogResponse::from).toList(), nextCursor);
+	}
+
+	// 다른 냉장고의 기록 id를 cursor로 보내면 그 냉장고의 기록 순서를 알 수 있으므로 받지 않는다
+	private ActivityLog findCursor(Long fridgeId, Long cursor) {
+		return activityLogRepository.findById(cursor)
+			.filter(log -> log.getFridge().getId().equals(fridgeId))
+			.orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));
+	}
+
+	private List<ActivityLog> findBefore(Long fridgeId, ActivityLog log, int size) {
+		return activityLogRepository.findWithUserByFridgeIdBefore(fridgeId, log.getCreatedAt(), log.getId(),
+			PageRequest.of(0, size));
+	}
+
+	private boolean isSameCooking(ActivityLog first, ActivityLog second) {
+		return first.getCookingLog() != null && second.getCookingLog() != null
+			&& Objects.equals(first.getCookingLog().getId(), second.getCookingLog().getId())
+			&& first.getAction() == second.getAction();
 	}
 
 }
