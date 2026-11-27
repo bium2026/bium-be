@@ -121,6 +121,22 @@ class NotificationSettingControllerTest {
 	}
 
 	@Test
+	void 알림을_켜고_D_3와_D_day를_모두_끄면_400을_반환하고_알림을_끄면_저장한다() throws Exception {
+		save("{\"email\": \"me@bium.test\", \"enabled\": true, \"notifyTime\": \"09:00\", \"notifyD3\": false, \"notifyDday\": false}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.code").value("NOTIFICATION_TIMING_REQUIRED"));
+		perform(get("/api/notification-settings"))
+			.andExpect(jsonPath("$.data.notifyD3").value(true))
+			.andExpect(jsonPath("$.data.notifyDday").value(true));
+
+		save("{\"email\": \"me@bium.test\", \"enabled\": false, \"notifyTime\": \"09:00\", \"notifyD3\": false, \"notifyDday\": false}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.enabled").value(false))
+			.andExpect(jsonPath("$.data.notifyD3").value(false))
+			.andExpect(jsonPath("$.data.notifyDday").value(false));
+	}
+
+	@Test
 	void 이메일_형식이_틀리거나_시각이_없으면_400을_반환한다() throws Exception {
 		save("{\"email\": \"not-an-email\", \"enabled\": true, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
 			.andExpect(status().isBadRequest())

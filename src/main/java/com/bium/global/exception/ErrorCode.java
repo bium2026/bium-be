@@ -46,6 +46,7 @@ public enum ErrorCode {
 	RECEIPT_NOT_RECOGNIZED(HttpStatus.BAD_REQUEST, "영수증 인식에 실패했습니다. 영수증이 잘 보이게 다시 찍어 주세요."),
 	NUTRITION_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "영양 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."),
 	NOTIFICATION_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "알림을 받을 이메일을 먼저 입력해 주세요."),
+	NOTIFICATION_TIMING_REQUIRED(HttpStatus.BAD_REQUEST, "알림을 켜려면 D-3과 D-day 중 하나 이상 골라 주세요."),
 	NOTIFICATION_MAIL_FAILED(HttpStatus.BAD_GATEWAY, "알림 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
