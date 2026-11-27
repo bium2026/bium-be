@@ -43,11 +43,14 @@ public class NotificationSettingService {
 		settingRepository.save(setting);
 	}
 
-	// 받을 주소가 없으면 알림을 켤 수 없다
+	// 받을 주소가 없거나 알릴 재료(D-3·D-day)를 하나도 고르지 않으면 알림을 켤 수 없다
 	@Transactional
 	public NotificationSettingResponse update(Long userId, NotificationSettingRequest request) {
 		if (request.enabled() && request.email() == null) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_EMAIL_REQUIRED);
+		}
+		if (request.enabled() && !request.notifyD3() && !request.notifyDday()) {
+			throw new BusinessException(ErrorCode.NOTIFICATION_TIMING_REQUIRED);
 		}
 		NotificationSetting setting = settingRepository.findById(userId)
 			.orElseGet(() -> settingRepository.save(new NotificationSetting(findUser(userId), request.notifyTime())));

@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * 알림 설정 화면에서 저장한 값. email을 비우면 받을 주소를 지우며, 이때는 알림을 켤 수 없다.
+ * 알림을 켜려면 notifyD3·notifyDday 중 하나는 true여야 한다.
  * notifyTime은 "HH:mm" 형식이다.
  */
 public record NotificationSettingRequest(
