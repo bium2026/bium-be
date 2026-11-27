@@ -113,6 +113,22 @@ class MarketPriceServiceTest {
 	}
 
 	@Test
+	void 품종_이름은_품목_최저가로_찾지_않는다() {
+		marketPriceService.save(TUESDAY, List.of(
+			new KamisPrice("파", "대파(1kg)", "상품", "1kg", 2900, null),
+			new KamisPrice("파", "쪽파(1kg)", "상품", "1kg", 8500, null),
+			new KamisPrice("풋고추", "풋고추", "상품", "100g", 600, null),
+			new KamisPrice("풋고추", "꽈리고추", "상품", "100g", 900, null),
+			new KamisPrice("풋고추", "청양고추", "상품", "100g", 1200, null)));
+
+		Map<String, MarketPrice> prices = marketPriceService.findByItemNames(
+			List.of("대파", "쪽파", "청양고추", "꽈리고추", "풋고추"));
+
+		assertThat(prices).containsOnlyKeys("대파", "풋고추");
+		assertThat(prices.get("대파").getPrice()).isEqualTo(2900);
+	}
+
+	@Test
 	void 이름이_없으면_빈_결과를_준다() {
 		assertThat(marketPriceService.findByItemNames(List.of())).isEmpty();
 	}
