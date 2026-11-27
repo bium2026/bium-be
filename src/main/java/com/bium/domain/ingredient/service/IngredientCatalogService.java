@@ -112,11 +112,13 @@ public class IngredientCatalogService {
 		return IngredientCatalogResponse.from(catalog, false, ingredientImageLookupService.forCatalog(userId, catalog));
 	}
 
-	// 사진을 바꿀 때마다 새 키를 만들어, 화면이 옛 주소로 받아 둔 사진을 오래 캐시해도 새 사진과 섞이지 않게 한다
+	// 사진을 바꿀 때마다 새 키를 만들어, 화면이 옛 주소로 받아 둔 사진을 오래 캐시해도 새 사진과 섞이지 않게 한다.
+	// 다른 사용자의 재료면 사진을 읽기 전에 거절하려고 먼저 잠근다. 잠그기 전에 따로 확인하면 MySQL REPEATABLE READ의
+	// 스냅샷이 잠그기 전에 잡혀, 잠근 뒤 읽는 내 사진(ingredient_user_images)이 앞선 요청이 바꾸기 전 값으로 보인다
 	@Transactional
 	public IngredientCatalogResponse changeImage(Long userId, Long catalogId, MultipartFile image) {
-		byte[] png = ingredientImageProcessor.toPng(image);
 		IngredientCatalog catalog = lockUsableCatalog(userId, catalogId);
+		byte[] png = ingredientImageProcessor.toPng(image);
 		String newKey = UUID.randomUUID().toString();
 		ingredientImageRepository.save(new IngredientImage(newKey, IngredientImageProcessor.CONTENT_TYPE, png));
 
