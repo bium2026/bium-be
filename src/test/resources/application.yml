@@ -21,7 +21,7 @@ notification:
   scheduler-enabled: false
 
 cors:
-  allowed-origins: http://localhost:[*],https://*.ngrok-free.app,https://*.ngrok.app
+  allowed-origins: http://localhost:[*],https://*.ngrok-free.app,https://*.ngrok.app,https://*.ngrok-free.dev,https://*.ngrok.dev
 
 jwt:
   secret: test-only-jwt-secret-key-for-bium-tests
