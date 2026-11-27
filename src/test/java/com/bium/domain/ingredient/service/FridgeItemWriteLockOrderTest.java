@@ -1,10 +1,12 @@
 package com.bium.domain.ingredient.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -21,7 +23,10 @@ import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
 import com.bium.domain.fridge.repository.FridgeRepository;
+import com.bium.domain.ingredient.dto.FridgeItemBulkCreateRequest;
 import com.bium.domain.ingredient.dto.FridgeItemBulkDeleteRequest;
+import com.bium.domain.ingredient.dto.FridgeItemCreateRequest;
+import com.bium.domain.ingredient.dto.FridgeItemPositionRequest;
 import com.bium.domain.ingredient.dto.FridgeItemUpdateRequest;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.SectionType;
@@ -30,6 +35,8 @@ import com.bium.domain.recipe.dto.CookingRequest;
 import com.bium.domain.recipe.entity.Recipe;
 import com.bium.domain.recipe.service.CookingService;
 import com.bium.domain.user.entity.User;
+import com.bium.global.exception.BusinessException;
+import com.bium.global.exception.ErrorCode;
 
 import jakarta.persistence.EntityManager;
 
@@ -38,6 +45,7 @@ import jakarta.persistence.EntityManager;
  * 활동 기록을 넣을 때 MySQL이 외래 키 확인으로 냉장고 행의 잠금을 기다리므로, 재료를 먼저 잡으면
  * 냉장고 → 칸의 재료 순서로 잠그는 옮기기 요청과 교착 상태가 생긴다.
  * H2는 외래 키 확인에서 잠그지 않아 교착 상태를 그대로 재현할 수 없어서, 냉장고를 잡아 둔 동안 기다리는지로 순서를 확인한다.
+ * 멤버가 아니면 냉장고를 잠그기 전에 거절해서, 냉장고를 잡아 둔 동안에도 기다리지 않고 바로 404가 난다.
  */
 @SpringBootTest
 class FridgeItemWriteLockOrderTest {
@@ -58,6 +66,7 @@ class FridgeItemWriteLockOrderTest {
 	private CookingService cookingService;
 
 	private Long userId;
+	private Long strangerId;
 	private Long fridgeId;
 	private Long recipeId;
 	private Long tofuId;
@@ -68,6 +77,7 @@ class FridgeItemWriteLockOrderTest {
 	void setUp() {
 		transactionTemplate.executeWithoutResult(status -> {
 			User user = em.merge(new User("lock-order-member", "password", "멤버"));
+			User stranger = em.merge(new User("lock-order-stranger", "password", "남"));
 			Fridge fridge = em.merge(new Fridge("공유 냉장고"));
 			em.persist(new FridgeMember(fridge, user, MemberRole.MEMBER));
 			Recipe recipe = Recipe.builder().fridge(fridge).title("두부조림").build();
@@ -77,6 +87,7 @@ class FridgeItemWriteLockOrderTest {
 			em.persist(tofu);
 			em.persist(milk);
 			userId = user.getId();
+			strangerId = stranger.getId();
 			fridgeId = fridge.getId();
 			recipeId = recipe.getId();
 			tofuId = tofu.getId();
@@ -108,6 +119,33 @@ class FridgeItemWriteLockOrderTest {
 		assertWaitsForFridgeLock(() -> cookingService.undo(userId, cookingLogId));
 	}
 
+	@Test
+	void 멤버가_아니면_냉장고를_잠그기_전에_재료를_넣지_않는다() throws Exception {
+		assertRejectedWithoutWaiting(() -> fridgeItemService.create(strangerId, fridgeId,
+			new FridgeItemCreateRequest(1L, "두부", "🧊", StorageType.FRIDGE)), ErrorCode.FRIDGE_NOT_FOUND);
+	}
+
+	@Test
+	void 멤버가_아니면_냉장고를_잠그기_전에_여러_재료를_넣지_않는다() throws Exception {
+		assertRejectedWithoutWaiting(() -> fridgeItemService.createAll(strangerId, fridgeId,
+				new FridgeItemBulkCreateRequest(List.of(
+					new FridgeItemBulkCreateRequest.Item("두부", null, StorageType.FRIDGE, null)))),
+			ErrorCode.FRIDGE_NOT_FOUND);
+	}
+
+	@Test
+	void 멤버가_아니면_냉장고를_잠그기_전에_여러_재료를_지우지_않는다() throws Exception {
+		assertRejectedWithoutWaiting(() -> fridgeItemService.deleteAll(strangerId, fridgeId,
+				new FridgeItemBulkDeleteRequest(List.of(new FridgeItemBulkDeleteRequest.Item(milkId, 0)))),
+			ErrorCode.FRIDGE_NOT_FOUND);
+	}
+
+	@Test
+	void 멤버가_아니면_냉장고를_잠그기_전에_재료를_옮기지_않는다() throws Exception {
+		assertRejectedWithoutWaiting(() -> fridgeItemService.changePosition(strangerId, milkId,
+			new FridgeItemPositionRequest(StorageType.FRIDGE, SectionType.LEFT_DOOR, 0, 0)), ErrorCode.FRIDGE_ITEM_NOT_FOUND);
+	}
+
 	// 다른 트랜잭션이 냉장고 행을 잡고 있는 동안 요청이 끝나지 않고 기다리다, 놓아주면 성공하는지 본다
 	private void assertWaitsForFridgeLock(Runnable request) throws Exception {
 		ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -135,6 +173,37 @@ class FridgeItemWriteLockOrderTest {
 		assertThat(finishedWhileLocked).as("냉장고 잠금을 기다리지 않고 끝났다").isFalse();
 	}
 
+	// 다른 트랜잭션이 냉장고 행을 잡고 있어도 기다리지 않고 바로 그 오류로 거절하는지 본다
+	private void assertRejectedWithoutWaiting(Runnable request, ErrorCode errorCode) throws Exception {
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Future<?> holder = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+			fridgeRepository.findByIdForUpdate(fridgeId).orElseThrow();
+			locked.countDown();
+			try {
+				release.await(10, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}));
+		assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+
+		try {
+			Future<?> rejected = executor.submit(request);
+			assertThatThrownBy(() -> rejected.get(3, TimeUnit.SECONDS))
+				.isInstanceOf(ExecutionException.class)
+				.extracting(Throwable::getCause)
+				.isInstanceOf(BusinessException.class)
+				.extracting("errorCode")
+				.isEqualTo(errorCode);
+		} finally {
+			release.countDown();
+			holder.get(10, TimeUnit.SECONDS);
+			executor.shutdown();
+		}
+	}
+
 	private FridgeItem item(Fridge fridge, String name, int sortOrder) {
 		return FridgeItem.builder()
 			.fridge(fridge)
@@ -156,7 +225,8 @@ class FridgeItemWriteLockOrderTest {
 			em.createQuery("delete from Recipe where id = :id").setParameter("id", recipeId).executeUpdate();
 			em.createQuery("delete from FridgeMember where fridge.id = :id").setParameter("id", fridgeId).executeUpdate();
 			em.createQuery("delete from Fridge where id = :id").setParameter("id", fridgeId).executeUpdate();
-			em.createQuery("delete from User where id = :id").setParameter("id", userId).executeUpdate();
+			em.createQuery("delete from User where id in :ids").setParameter("ids", List.of(userId, strangerId))
+				.executeUpdate();
 		});
 	}
 
