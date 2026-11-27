@@ -21,6 +21,7 @@ public enum ErrorCode {
 	INVITE_EXPIRED(HttpStatus.GONE, "만료된 초대 코드입니다. 새 코드를 받아 주세요."),
 	ALREADY_FRIDGE_MEMBER(HttpStatus.CONFLICT, "이미 이 냉장고의 멤버입니다."),
 	FRIDGE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "재료를 찾을 수 없습니다."),
+	FRIDGE_DOOR_FULL(HttpStatus.CONFLICT, "문칸에는 재료를 5개까지 넣을 수 있습니다."),
 	CATALOG_NOT_FOUND(HttpStatus.NOT_FOUND, "도감에서 재료를 찾을 수 없습니다."),
 	DUPLICATE_CATALOG_NAME(HttpStatus.CONFLICT, "이미 도감에 있는 재료입니다."),
 	INVALID_INGREDIENT_IMAGE(HttpStatus.BAD_REQUEST, "JPG나 PNG 사진을 올려 주세요. 가로·세로는 4096px까지 올릴 수 있습니다."),

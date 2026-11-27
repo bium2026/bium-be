@@ -10,6 +10,8 @@ import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.entity.SectionType;
 import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
+import com.bium.global.exception.BusinessException;
+import com.bium.global.exception.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,10 +19,13 @@ import lombok.RequiredArgsConstructor;
  * 재료를 칸 안의 원하는 위치에 놓고, 그 칸 재료의 순번을 0부터 다시 매긴다. 다른 칸에서 옮겨 오면 원래 칸도 다시 매긴다.
  * 두 요청이 같은 칸의 순번을 동시에 매기지 않도록, 부르는 쪽에서 냉장고 행을 먼저 잠가야 한다.
  * 교착 상태를 막으려고 잠그는 순서는 언제나 냉장고 → 옮길 재료(장본 음식) → 원래 칸의 재료 → 놓을 칸의 재료다.
+ * 문칸은 화면(FridgeBoard의 DOOR_SLOT_COUNT)처럼 재료를 5개까지 둔다.
  */
 @Component
 @RequiredArgsConstructor
 public class FridgeItemArranger {
+
+	static final int DOOR_CAPACITY = 5;
 
 	private final FridgeItemRepository fridgeItemRepository;
 
@@ -36,6 +41,11 @@ public class FridgeItemArranger {
 		}
 
 		List<FridgeItem> sectionItems = sectionItemsWithout(item, fridgeId, storage, section);
+		// 같은 문칸 안에서 순서만 바꾸는 것은 가득 차 있어도 된다. 바꾼 순번은 예외로 트랜잭션이 되돌린다
+		boolean entersSection = item.getId() == null || item.getStorage() != storage || item.getSection() != section;
+		if (section != SectionType.CENTER && entersSection && sectionItems.size() >= DOOR_CAPACITY) {
+			throw new BusinessException(ErrorCode.FRIDGE_DOOR_FULL);
+		}
 		item.moveTo(storage, section);
 		sectionItems.add(Math.min(index, sectionItems.size()), item);
 		renumber(sectionItems);
