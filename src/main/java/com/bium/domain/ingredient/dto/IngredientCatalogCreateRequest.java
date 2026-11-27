@@ -1,6 +1,7 @@
 package com.bium.domain.ingredient.dto;
 
 import com.bium.domain.ingredient.entity.IngredientCategory;
+import com.bium.global.util.TextPatterns;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -20,7 +21,7 @@ public record IngredientCatalogCreateRequest(
 	String name,
 	@NotBlank(message = "아이콘을 입력해 주세요.")
 	@Size(max = 16, message = "아이콘이 너무 깁니다.")
-	@Pattern(regexp = NO_EMOJI_CONTROL_CHARACTER, message = "아이콘에 줄바꿈이나 제어 문자를 쓸 수 없습니다.")
+	@Pattern(regexp = TextPatterns.SINGLE_EMOJI, message = "아이콘은 이모지 한 개로 넣어 주세요.")
 	String emoji,
 	@NotNull(message = "카테고리를 선택해 주세요.")
 	IngredientCategory category,
@@ -32,6 +33,5 @@ public record IngredientCatalogCreateRequest(
 
 	// FridgeItemUpdateRequest와 같은 규칙이다
 	private static final String NO_CONTROL_CHARACTER = "[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]*";
-	private static final String NO_EMOJI_CONTROL_CHARACTER = "[^\\p{Cc}\\p{Zl}\\p{Zp}]*";
 
 }

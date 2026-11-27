@@ -20,7 +20,7 @@ public record FridgeItemUpdateRequest(
 	@Pattern(regexp = TextPatterns.NO_CONTROL_CHARACTER, message = "재료 이름에 줄바꿈이나 제어 문자를 쓸 수 없습니다.")
 	String name,
 	@Size(max = 16, message = "아이콘이 너무 깁니다.")
-	@Pattern(regexp = TextPatterns.NO_EMOJI_CONTROL_CHARACTER, message = "아이콘에 줄바꿈이나 제어 문자를 쓸 수 없습니다.")
+	@Pattern(regexp = TextPatterns.SINGLE_EMOJI, message = "아이콘은 이모지 한 개로 넣어 주세요.")
 	String emoji,
 	LocalDate expiresAt,
 	@NotNull(message = "재료 버전을 보내 주세요.")
