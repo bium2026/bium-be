@@ -25,13 +25,12 @@ public class MarketPriceService {
 
 	// 사람들이 흔히 쓰는 재료 이름 → KAMIS 품목명. KAMIS는 '파', '돼지'처럼 다른 이름을 써서 그대로는 맞지 않는다.
 	// 삼겹살처럼 부위 이름은 넣지 않는다. 품목 최저가가 다른 부위(앞다리) 가격이라 잘못 보이기 때문이다
+	// 쪽파·청양고추·꽈리고추처럼 품종 이름도 넣지 않는다. 품목(파, 풋고추)에는 품종 가격 하나(가장 싼 것)만 저장되어
+	// 쪽파가 대파 가격으로, 청양고추가 다른 풋고추 가격으로 보이기 때문이다. 대파는 파의 주된 품종이라 넣는다
 	private static final Map<String, String> KAMIS_NAME_ALIASES = Map.ofEntries(
 		Map.entry("대파", "파"),
-		Map.entry("쪽파", "파"),
 		Map.entry("마늘", "깐마늘(국산)"),
 		Map.entry("깐마늘", "깐마늘(국산)"),
-		Map.entry("청양고추", "풋고추"),
-		Map.entry("꽈리고추", "풋고추"),
 		Map.entry("홍고추", "붉은고추"),
 		Map.entry("귤", "감귤"),
 		Map.entry("돼지고기", "돼지"),
