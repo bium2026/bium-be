@@ -53,11 +53,6 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class CookingService {
 
-	// 유통기한이 빠른 재료부터 먼저 쓰도록 추천한다. 유통기한이 없으면 뒤로 보낸다
-	private static final Comparator<FridgeItem> CANDIDATE_ORDER = Comparator
-		.comparing(FridgeItem::getExpiresAt, Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
-		.thenComparing(FridgeItem::getId);
-
 	private final RecipeRepository recipeRepository;
 	private final RecipeIngredientRepository recipeIngredientRepository;
 	private final FridgeItemRepository fridgeItemRepository;
@@ -76,6 +71,7 @@ public class CookingService {
 		List<FridgeItem> fridgeItems = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNull(
 			recipe.getFridge().getId());
 		IngredientImageLookup images = ingredientImageLookupService.forItems(userId, fridgeItems);
+		Comparator<FridgeItem> candidateOrder = candidateOrder(LocalDate.now(clock));
 
 		// 소금·간장 같은 기본 양념은 냉장고에서 관리하지 않으므로 뺄 후보를 찾지 않는다
 		List<IngredientCandidates> ingredients = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(
@@ -84,7 +80,7 @@ public class CookingService {
 			.map(ingredient -> new IngredientCandidates(ingredient.getName(), ingredient.getAmount(),
 				fridgeItems.stream()
 					.filter(item -> IngredientMatcher.matches(ingredient.getName(), item.getName()))
-					.sorted(CANDIDATE_ORDER)
+					.sorted(candidateOrder)
 					.map(item -> FridgeItemResponse.from(item, images))
 					.toList()))
 			.toList();
@@ -167,6 +163,15 @@ public class CookingService {
 		restoredItems.forEach(item -> activityLogService.recordCooking(userId, item, cookingLog, ActivityAction.RESTORE));
 
 		return new CookingUndoResponse(cookingLogId, restoredItems.stream().map(FridgeItem::getId).toList(), now);
+	}
+
+	// 유통기한이 빠른 재료부터 먼저 쓰도록 추천한다. 유통기한이 없으면 뒤로 보낸다.
+	// 레시피 추천은 유통기한이 지난 재료를 없는 재료로 보므로, 지난 재료는 지나지 않은 재료 뒤로 보내 처음에 골라지지 않게 한다
+	private static Comparator<FridgeItem> candidateOrder(LocalDate today) {
+		return Comparator
+			.comparing((FridgeItem item) -> item.getExpiresAt() != null && item.getExpiresAt().isBefore(today))
+			.thenComparing(FridgeItem::getExpiresAt, Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
+			.thenComparing(FridgeItem::getId);
 	}
 
 	// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
