@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bium.domain.shopping.dto.ShoppingListItemBulkCreateRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemCheckRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemCreateRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemListResponse;
@@ -34,6 +35,14 @@ public class ShoppingListItemController {
 		@PathVariable Long fridgeId, @Valid @RequestBody ShoppingListItemCreateRequest request) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
 			shoppingListItemService.create(userId, fridgeId, request)));
+	}
+
+	// 이미 안 산 상태로 담겨 있는 재료는 건너뛰고, 새로 담은 재료만 돌려준다
+	@PostMapping("/api/fridges/{fridgeId}/shopping-list-items/bulk")
+	public ResponseEntity<ApiResponse<ShoppingListItemListResponse>> createAll(@LoginUserId Long userId,
+		@PathVariable Long fridgeId, @Valid @RequestBody ShoppingListItemBulkCreateRequest request) {
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+			shoppingListItemService.addAll(userId, fridgeId, request)));
 	}
 
 	@GetMapping("/api/fridges/{fridgeId}/shopping-list-items")

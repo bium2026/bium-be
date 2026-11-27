@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
+import java.util.Collections;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -151,6 +152,49 @@ class ShoppingListItemControllerTest {
 
 		getItems(memberToken)
 			.andExpect(jsonPath("$.data.items.length()").value(2));
+	}
+
+	@Test
+	void 여러_재료를_한_번에_담으면_안_산_같은_이름은_건너뛰고_새로_담은_것만_준다() throws Exception {
+		item(fridge, "두부", null);
+		ShoppingListItem milk = item(fridge, "우유", null);
+		milk.check(true);
+
+		addAll(memberToken, "{\"names\": [\" 두 부 \", \"우유\", \"대파\", \"대 파\"]}")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.items.length()").value(2))
+			.andExpect(jsonPath("$.data.items[0].name").value("우유"))
+			.andExpect(jsonPath("$.data.items[0].checked").value(false))
+			.andExpect(jsonPath("$.data.items[1].name").value("대파"));
+
+		assertThat(countItems()).isEqualTo(4);
+		// 같은 요청을 다시 보내도 더 담지 않는다
+		addAll(ownerToken, "{\"names\": [\"우유\", \"대파\"]}")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.items.length()").value(0));
+		assertThat(countItems()).isEqualTo(4);
+	}
+
+	@Test
+	void 여러_재료를_담을_때_목록이_비었거나_이름이_틀리거나_멤버가_아니면_담지_않는다() throws Exception {
+		addAll(memberToken, "{\"names\": []}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("장보기 목록에 담을 재료를 골라 주세요."));
+		addAll(memberToken, "{\"names\": [\"두부\", \"  \"]}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료 이름을 입력해 주세요."));
+		addAll(memberToken, "{\"names\": [\"" + "가".repeat(51) + "\"]}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료 이름은 50자까지 쓸 수 있습니다."));
+		String tooMany = String.join(",", Collections.nCopies(31, "\"두부\""));
+		addAll(memberToken, "{\"names\": [" + tooMany + "]}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료는 한 번에 30개까지 담을 수 있습니다."));
+		addAll(strangerToken, "{\"names\": [\"두부\"]}")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_NOT_FOUND"));
+
+		assertThat(countItems()).isZero();
 	}
 
 	@Test
@@ -465,6 +509,13 @@ class ShoppingListItemControllerTest {
 
 	private ResultActions add(String token, String body) throws Exception {
 		return mockMvc.perform(post("/api/fridges/{fridgeId}/shopping-list-items", fridge.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
+	}
+
+	private ResultActions addAll(String token, String body) throws Exception {
+		return mockMvc.perform(post("/api/fridges/{fridgeId}/shopping-list-items/bulk", fridge.getId())
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body));
