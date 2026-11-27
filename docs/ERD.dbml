@@ -204,6 +204,7 @@ Table recipes {
   carbohydrate_g int
   fat_g         int
   created_at    datetime
+  deleted_at    datetime [null, note: '소프트 삭제. 요리 기록·장보기 목록이 레시피를 가리켜 행은 남긴다']
 }
 
 Table recipe_ingredients {
