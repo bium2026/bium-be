@@ -110,6 +110,30 @@ class FeedReactionControllerTest {
 	}
 
 	@Test
+	void 냉장고가_비공개로_바뀌어도_좋아요와_저장을_취소할_수_있고_다시_취소해도_그대로다() throws Exception {
+		em.persist(new FeedLike(owner, fridge));
+		react(put("/api/feed/fridges/{fridgeId}/like", fridge.getId()));
+		react(put("/api/feed/fridges/{fridgeId}/save", fridge.getId()));
+		fridge.changeVisibility(false);
+
+		react(delete("/api/feed/fridges/{fridgeId}/like", fridge.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.likeCount").value(1))
+			.andExpect(jsonPath("$.data.liked").value(false))
+			.andExpect(jsonPath("$.data.saved").value(true));
+		react(delete("/api/feed/fridges/{fridgeId}/save", fridge.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.saved").value(false));
+		react(delete("/api/feed/fridges/{fridgeId}/like", fridge.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.likeCount").value(1))
+			.andExpect(jsonPath("$.data.liked").value(false));
+		react(delete("/api/feed/fridges/{fridgeId}/save", fridge.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.saved").value(false));
+	}
+
+	@Test
 	void 로그인하지_않으면_401을_반환한다() throws Exception {
 		mockMvc.perform(put("/api/feed/fridges/{fridgeId}/like", fridge.getId()))
 			.andExpect(status().isUnauthorized());

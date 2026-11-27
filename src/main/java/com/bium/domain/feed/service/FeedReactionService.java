@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 피드 냉장고 좋아요·저장. 같은 요청을 여러 번 보내도 결과가 같다.
- * 공개하지 않은 냉장고에는 누를 수 없다.
+ * 공개하지 않은 냉장고에는 누를 수 없다. 취소는 냉장고가 비공개로 바뀐 뒤에도 할 수 있게 공개 여부를 보지 않고 내 기록만 지운다.
  * 넣기는 따로 트랜잭션을 열어, 같은 사용자가 동시에 두 번 보내 기본 키에 걸려도 그 트랜잭션만 되돌리고 넘어간다.
  */
 @Service
@@ -45,7 +45,6 @@ public class FeedReactionService {
 	}
 
 	public FeedReactionResponse unlike(Long userId, Long fridgeId) {
-		feedService.findPublicFridge(fridgeId);
 		transactionTemplate.executeWithoutResult(status -> feedLikeRepository.deleteByUserIdAndFridgeId(userId, fridgeId));
 		return reaction(userId, fridgeId);
 	}
@@ -62,7 +61,6 @@ public class FeedReactionService {
 	}
 
 	public FeedReactionResponse unsave(Long userId, Long fridgeId) {
-		feedService.findPublicFridge(fridgeId);
 		transactionTemplate.executeWithoutResult(status -> feedSaveRepository.deleteByUserIdAndFridgeId(userId, fridgeId));
 		return reaction(userId, fridgeId);
 	}
