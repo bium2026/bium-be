@@ -125,14 +125,24 @@ class MissingIngredientControllerTest {
 	}
 
 	@Test
-	void 부족_재료가_아닌_이름이_섞이면_아무것도_담지_않는다() throws Exception {
-		add(memberToken, "\"두부\", \"김치\"")
+	void 레시피_재료가_아니거나_기본_양념이_섞이면_아무것도_담지_않는다() throws Exception {
+		add(memberToken, "\"두부\", \"간장\"")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"));
 		add(memberToken, "\"두부\", \"우유\"")
 			.andExpect(status().isBadRequest());
 
 		assertThat(shoppingItems()).isEmpty();
+	}
+
+	@Test
+	void 만들_때_냉장고에_있던_재료도_요리로_다_써서_없으면_담을_수_있다() throws Exception {
+		add(memberToken, "\"김치\"")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.items.length()").value(1))
+			.andExpect(jsonPath("$.data.items[0].name").value("김치"));
+
+		assertThat(shoppingItems()).extracting(ShoppingListItem::getName).containsExactly("김치");
 	}
 
 	@Test
