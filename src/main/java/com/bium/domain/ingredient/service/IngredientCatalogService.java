@@ -94,6 +94,32 @@ public class IngredientCatalogService {
 		return IngredientCatalogResponse.from(catalog, false, IngredientImageLookup.NONE);
 	}
 
+	// 내가 추가한 재료의 이름·아이콘·카테고리·기본 유통기한을 바꾼다. 이 재료로 넣은 냉장고 재료·장본 음식은
+	// 이름과 아이콘을 따로 저장해 두어서 그대로 두고, 도감 재료와의 연결도 그대로 둔다.
+	// 기본 재료는 지울 때처럼 고칠 수 없고 없는 재료와 같은 오류를 준다
+	@Transactional
+	public IngredientCatalogResponse update(Long userId, Long catalogId, IngredientCatalogCreateRequest request) {
+		// 사진 바꾸기와 겹치면 한쪽이 읽어 둔 옛 사진 키로 다른 쪽이 바꾼 사진 키를 덮어쓰므로, 같은 행을 잠가 차례로 바꾼다
+		IngredientCatalog catalog = lockUsableCatalog(userId, catalogId);
+		if (catalog.isShared()) {
+			throw new BusinessException(ErrorCode.CATALOG_NOT_FOUND);
+		}
+		String name = request.name().strip();
+		// 기본 재료와 이름이 같으면 도감에 같은 재료가 두 개 보이므로 추가할 때처럼 막는다
+		if (!name.equals(catalog.getName()) && (ingredientCatalogRepository.existsByOwnerIdAndName(userId, name)
+			|| ingredientCatalogRepository.existsByOwnerIsNullAndName(name))) {
+			throw new BusinessException(ErrorCode.DUPLICATE_CATALOG_NAME);
+		}
+		catalog.update(name, request.emoji().strip(), request.category(), request.shelfLifeDays());
+		try {
+			ingredientCatalogRepository.flush();
+		} catch (DataIntegrityViolationException e) {
+			// 같은 이름으로 동시에 바꾸거나 추가하면 위 확인을 둘 다 통과하고 (owner_key, name) 유니크 제약에서 걸린다
+			throw new BusinessException(ErrorCode.DUPLICATE_CATALOG_NAME);
+		}
+		return imageResponse(userId, catalog);
+	}
+
 	// 이미 즐겨찾기한 재료여도 오류 없이 같은 결과를 준다
 	@Transactional
 	public IngredientCatalogResponse addFavorite(Long userId, Long catalogId) {

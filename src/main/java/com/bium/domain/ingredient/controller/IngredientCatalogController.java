@@ -44,6 +44,14 @@ public class IngredientCatalogController {
 			ingredientCatalogService.create(Long.valueOf(jwt.getSubject()), request)));
 	}
 
+	// 내가 추가한 재료만 고칠 수 있다. 입력 규칙은 추가할 때와 같다
+	@PutMapping("/{catalogId}")
+	public ResponseEntity<ApiResponse<IngredientCatalogResponse>> update(@AuthenticationPrincipal Jwt jwt,
+		@PathVariable Long catalogId, @Valid @RequestBody IngredientCatalogCreateRequest request) {
+		return ResponseEntity.ok(ApiResponse.success(
+			ingredientCatalogService.update(Long.valueOf(jwt.getSubject()), catalogId, request)));
+	}
+
 	// 프론트의 공통 요청 함수는 응답 본문을 읽어 성공 여부를 판단하므로 204 대신 공통 응답 형식으로 돌려준다
 	@DeleteMapping("/{catalogId}")
 	public ResponseEntity<ApiResponse<Void>> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long catalogId) {

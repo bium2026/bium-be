@@ -91,6 +91,14 @@ public class IngredientCatalog {
 		return owner == null;
 	}
 
+	// 내가 추가한 재료를 고친다. 사진은 changeImageKey로 따로 바꾼다
+	public void update(String name, String emoji, IngredientCategory category, Integer shelfLifeDays) {
+		this.name = name;
+		this.emoji = emoji;
+		this.category = category;
+		this.shelfLifeDays = shelfLifeDays;
+	}
+
 	public void changeImageKey(String imageKey) {
 		this.imageKey = imageKey;
 	}

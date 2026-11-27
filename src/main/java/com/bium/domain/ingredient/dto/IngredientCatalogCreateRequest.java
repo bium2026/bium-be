@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * 도감의 새 재료 추가 모달에서 입력한 값을 받는다. 길이와 범위는 모달의 검사 규칙과 같다.
+ * 도감의 새 재료 추가·재료 수정 모달에서 입력한 값을 받는다. 길이와 범위는 모달의 검사 규칙과 같다.
  * 재료 이름은 냉장고 재료로 옮겨져 레시피 추천 프롬프트에 들어가므로 줄바꿈·제어 문자를 막는다.
  */
 public record IngredientCatalogCreateRequest(
