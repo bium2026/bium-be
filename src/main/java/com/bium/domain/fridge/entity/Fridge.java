@@ -49,6 +49,10 @@ public class Fridge {
 		this.name = name;
 	}
 
+	public void rename(String name) {
+		this.name = name;
+	}
+
 	// 주인이 피드에 냉장고를 공개하거나 숨긴다
 	public void changeVisibility(boolean isPublic) {
 		this.isPublic = isPublic;
