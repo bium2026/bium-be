@@ -159,6 +159,7 @@ class RecipeControllerTest {
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.id").value(recipeId))
+			.andExpect(jsonPath("$.data.type").value("RECOMMEND"))
 			.andExpect(jsonPath("$.data.name").value("두부 계란 볶음밥"))
 			.andExpect(jsonPath("$.data.emoji").value("🍳"))
 			.andExpect(jsonPath("$.data.cookTimeMinutes").value(12))
