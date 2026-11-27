@@ -24,6 +24,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.auth.dto.SignupRequest;
+import com.bium.domain.auth.service.AuthService;
 import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
@@ -45,6 +47,9 @@ class ExpiryNotificationServiceTest {
 
 	@Autowired
 	private ExpiryNotificationService notificationService;
+
+	@Autowired
+	private AuthService authService;
 
 	@Autowired
 	private EntityManager em;
@@ -99,6 +104,20 @@ class ExpiryNotificationServiceTest {
 		assertThat(log.getStatus()).isEqualTo(NotificationStatus.SUCCESS);
 		assertThat(log.getItemCount()).isEqualTo(2);
 		assertThat(reloadSetting().getLastSentDate()).isEqualTo(today);
+	}
+
+	@Test
+	void 가입하고_알림_설정을_저장한_적이_없어도_기본값대로_가입한_이메일로_보낸다() {
+		Long userId = authService.signup(new SignupRequest("new@bium.test", "bium2026", "선재")).userId();
+		item(fridge("선재의 냉장고", em.find(User.class, userId), MemberRole.OWNER), "우유", today);
+
+		// 기본 알림 시각(9시) 전에는 보내지 않는다
+		assertThat(notificationService.sendDue(today.atTime(8, 55))).isZero();
+		assertThat(notificationService.sendDue(tenOClock)).isEqualTo(1);
+
+		SimpleMailMessage mail = sentMail();
+		assertThat(mail.getTo()).containsExactly("new@bium.test");
+		assertThat(mail.getText()).contains("우유 (선재의 냉장고)");
 	}
 
 	@Test
