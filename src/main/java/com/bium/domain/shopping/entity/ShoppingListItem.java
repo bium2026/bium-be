@@ -85,4 +85,8 @@ public class ShoppingListItem {
 		this.isChecked = checked;
 	}
 
+	public void rename(String name) {
+		this.name = name;
+	}
+
 }

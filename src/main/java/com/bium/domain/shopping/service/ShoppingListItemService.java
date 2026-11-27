@@ -11,6 +11,7 @@ import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.shopping.dto.ShoppingListItemCheckRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemCreateRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemListResponse;
+import com.bium.domain.shopping.dto.ShoppingListItemRenameRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemResponse;
 import com.bium.domain.shopping.entity.ShoppingListItem;
 import com.bium.domain.shopping.repository.ShoppingListItemRepository;
@@ -55,6 +56,13 @@ public class ShoppingListItemService {
 	public ShoppingListItemResponse check(Long userId, Long itemId, ShoppingListItemCheckRequest request) {
 		ShoppingListItem item = findAccessibleItem(userId, itemId);
 		item.check(request.checked());
+		return toResponse(item);
+	}
+
+	// 담을 때처럼 같은 이름이 목록에 있어도 막지 않는다. 시세는 바꾼 이름으로 다시 찾는다
+	public ShoppingListItemResponse rename(Long userId, Long itemId, ShoppingListItemRenameRequest request) {
+		ShoppingListItem item = findAccessibleItem(userId, itemId);
+		item.rename(request.name());
 		return toResponse(item);
 	}
 
