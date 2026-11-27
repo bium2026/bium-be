@@ -32,6 +32,9 @@ public record SignupRequest(
 
 	public SignupRequest {
 		email = email == null ? null : SpaceTrimmer.trim(email).toLowerCase(Locale.ROOT);
+		// 공백만 넣으면 null로 바꿔 길이 검사가 아닌 빈 값 검사(@NotBlank)에 걸리게 한다
+		String trimmedNickname = SpaceTrimmer.trim(nickname);
+		nickname = trimmedNickname == null || trimmedNickname.isEmpty() ? null : trimmedNickname;
 	}
 
 }
