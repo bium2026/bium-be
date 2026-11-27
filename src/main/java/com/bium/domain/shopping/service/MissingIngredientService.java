@@ -26,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 레시피의 부족 재료 중 사용자가 확인 모달에서 고른 재료를 그 레시피 냉장고의 장보기 목록에 담는다.
+ * 부족 재료는 레시피를 만들 때의 MISSING만이 아니라, 요리로 다 써서 지금 냉장고에 없는 재료도 될 수 있다.
+ * 지금 냉장고에 있는지는 화면이 요리 재료 후보로 판단하므로, 서버는 기본 양념이 아닌 레시피 재료인지만 확인한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,13 +41,13 @@ public class MissingIngredientService {
 	private final UserRepository userRepository;
 	private final MarketPriceService marketPriceService;
 
-	// 고른 재료 중 하나라도 이 레시피의 부족 재료가 아니면 아무것도 담지 않는다
+	// 고른 재료 중 하나라도 이 레시피의 재료가 아니거나 기본 양념이면 아무것도 담지 않는다
 	public ShoppingListItemListResponse add(Long userId, Long recipeId, MissingIngredientAddRequest request) {
 		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
 
 		Set<String> missingNames = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId))
 			.stream()
-			.filter(ingredient -> ingredient.getSource() == IngredientSource.MISSING)
+			.filter(ingredient -> ingredient.getSource() != IngredientSource.BASIC)
 			.map(RecipeIngredient::getName)
 			.collect(Collectors.toSet());
 		// 같은 재료를 두 번 보내도 한 번만 담는다
