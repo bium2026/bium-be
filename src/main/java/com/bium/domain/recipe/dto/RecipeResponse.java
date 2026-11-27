@@ -7,12 +7,15 @@ import com.bium.domain.recipe.entity.IngredientSource;
 import com.bium.domain.recipe.entity.Recipe;
 import com.bium.domain.recipe.entity.RecipeDifficulty;
 import com.bium.domain.recipe.entity.RecipeIngredient;
+import com.bium.domain.recipe.entity.RecipeType;
 
 /**
+ * type은 보유 재료로 추천받은 레시피(RECOMMEND)인지 만들고 싶은 음식으로 만든 레시피(TARGET)인지다.
  * fridgeMatches는 재료 중 냉장고에 있는 재료의 이름이다.
  */
 public record RecipeResponse(
 	Long id,
+	RecipeType type,
 	String name,
 	String emoji,
 	String summary,
@@ -37,6 +40,7 @@ public record RecipeResponse(
 			.toList();
 		return new RecipeResponse(
 			recipe.getId(),
+			recipe.getType(),
 			recipe.getTitle(),
 			recipe.getEmoji(),
 			recipe.getSummary(),

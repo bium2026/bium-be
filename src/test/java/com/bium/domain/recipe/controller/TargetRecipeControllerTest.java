@@ -142,6 +142,7 @@ class TargetRecipeControllerTest {
 		mockMvc.perform(get("/api/recipes/{recipeId}", recipeId)
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.type").value("TARGET"))
 			.andExpect(jsonPath("$.data.ingredients[1].source").value("MISSING"));
 	}
 
