@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bium.domain.shopping.dto.ShoppingListItemCheckRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemCreateRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemListResponse;
+import com.bium.domain.shopping.dto.ShoppingListItemRenameRequest;
 import com.bium.domain.shopping.dto.ShoppingListItemResponse;
 import com.bium.domain.shopping.service.ShoppingListItemService;
 import com.bium.global.response.ApiResponse;
@@ -21,7 +22,7 @@ import com.bium.global.security.LoginUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-// 조회·담기는 냉장고 아래 주소를, 체크·빼기는 장보기 항목 주소를 써서 메서드마다 전체 주소를 적는다
+// 조회·담기는 냉장고 아래 주소를, 체크·이름 고치기·빼기는 장보기 항목 주소를 써서 메서드마다 전체 주소를 적는다
 @RestController
 @RequiredArgsConstructor
 public class ShoppingListItemController {
@@ -47,6 +48,13 @@ public class ShoppingListItemController {
 		@PathVariable Long itemId, @Valid @RequestBody ShoppingListItemCheckRequest request) {
 		return ResponseEntity.ok(ApiResponse.success(
 			shoppingListItemService.check(userId, itemId, request)));
+	}
+
+	@PatchMapping("/api/shopping-list-items/{itemId}/name")
+	public ResponseEntity<ApiResponse<ShoppingListItemResponse>> rename(@LoginUserId Long userId,
+		@PathVariable Long itemId, @Valid @RequestBody ShoppingListItemRenameRequest request) {
+		return ResponseEntity.ok(ApiResponse.success(
+			shoppingListItemService.rename(userId, itemId, request)));
 	}
 
 	@DeleteMapping("/api/shopping-list-items/{itemId}")

@@ -232,6 +232,70 @@ class ShoppingListItemControllerTest {
 	}
 
 	@Test
+	void 이름을_고치면_앞뒤_공백을_빼고_바꾼_이름의_시세를_주며_같은_이름이_있어도_고친다() throws Exception {
+		em.persist(MarketPrice.builder()
+			.itemName("양파")
+			.kindName("양파")
+			.grade("중품")
+			.unit("1kg")
+			.price(3450)
+			.weekAgoPrice(3600)
+			.surveyDate(LocalDate.of(2026, 11, 10))
+			.build());
+		Recipe recipe = Recipe.builder().fridge(fridge).title("두부조림").build();
+		em.persist(recipe);
+		ShoppingListItem tofu = item(fridge, "두부", recipe);
+		tofu.check(true);
+		item(fridge, "양파", null);
+
+		rename(tofu.getId(), ownerToken, "{\"name\": \"  양파  \"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.id").value(tofu.getId()))
+			.andExpect(jsonPath("$.data.name").value("양파"))
+			.andExpect(jsonPath("$.data.checked").value(true))
+			.andExpect(jsonPath("$.data.recipeName").value("두부조림"))
+			.andExpect(jsonPath("$.data.marketPrice.price").value(3450));
+
+		assertThat(reload(tofu.getId()).getName()).isEqualTo("양파");
+	}
+
+	@Test
+	void 고칠_이름이_비었거나_50자를_넘으면_400을_반환하고_이름을_바꾸지_않는다() throws Exception {
+		ShoppingListItem tofu = item(fridge, "두부", null);
+
+		rename(tofu.getId(), memberToken, "{\"name\": \"   \"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"))
+			.andExpect(jsonPath("$.error.message").value("재료 이름을 입력해 주세요."));
+		rename(tofu.getId(), memberToken, "{\"name\": \"" + "가".repeat(51) + "\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료 이름은 50자까지 쓸 수 있습니다."));
+		rename(tofu.getId(), memberToken, "{\"name\": \"두부\\n우유\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("재료 이름에 줄바꿈이나 제어 문자를 쓸 수 없습니다."));
+
+		assertThat(reload(tofu.getId()).getName()).isEqualTo("두부");
+	}
+
+	@Test
+	void 다른_냉장고나_없는_재료의_이름은_고칠_수_없다() throws Exception {
+		ShoppingListItem tofu = item(fridge, "두부", null);
+
+		rename(tofu.getId(), strangerToken, "{\"name\": \"우유\"}")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("SHOPPING_LIST_ITEM_NOT_FOUND"));
+		rename(Long.MAX_VALUE, memberToken, "{\"name\": \"우유\"}")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("SHOPPING_LIST_ITEM_NOT_FOUND"));
+		mockMvc.perform(patch("/api/shopping-list-items/{itemId}/name", tofu.getId())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\": \"우유\"}"))
+			.andExpect(status().isUnauthorized());
+
+		assertThat(reload(tofu.getId()).getName()).isEqualTo("두부");
+	}
+
+	@Test
 	void 빼면_204를_반환하고_목록에서_사라진다() throws Exception {
 		ShoppingListItem tofu = item(fridge, "두부", null);
 
@@ -369,6 +433,13 @@ class ShoppingListItemControllerTest {
 
 	private ResultActions check(Long itemId, String token, String body) throws Exception {
 		return mockMvc.perform(patch("/api/shopping-list-items/{itemId}", itemId)
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
+	}
+
+	private ResultActions rename(Long itemId, String token, String body) throws Exception {
+		return mockMvc.perform(patch("/api/shopping-list-items/{itemId}/name", itemId)
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body));
