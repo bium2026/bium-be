@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,6 +53,10 @@ class CookingControllerTest {
 	@Autowired
 	private JwtProvider jwtProvider;
 
+	@Autowired
+	private Clock clock;
+
+	private LocalDate today;
 	private Fridge fridge;
 	private User member;
 	private String memberToken;
@@ -59,6 +64,7 @@ class CookingControllerTest {
 
 	@BeforeEach
 	void setUp() {
+		today = LocalDate.now(clock);
 		member = em.merge(new User("member", "password", "멤버"));
 		fridge = em.merge(new Fridge("우리 냉장고"));
 		em.persist(new FridgeMember(fridge, member, MemberRole.MEMBER));
@@ -73,10 +79,10 @@ class CookingControllerTest {
 
 	@Test
 	void 레시피_재료마다_뺄_후보를_유통기한이_빠른_순으로_돌려주고_기본_양념은_뺀다() throws Exception {
-		FridgeItem lateTofu = item("두부", LocalDate.of(2026, 11, 5));
-		FridgeItem earlyTofu = item("순두부", LocalDate.of(2026, 10, 28));
+		FridgeItem lateTofu = item("두부", today.plusDays(8));
+		FridgeItem earlyTofu = item("순두부", today);
 		FridgeItem noExpiryTofu = item("두부", null);
-		item("양파", LocalDate.of(2026, 10, 27));
+		item("양파", today.minusDays(1));
 
 		getCandidates(recipe.getId(), memberToken)
 			.andExpect(status().isOk())
@@ -91,6 +97,23 @@ class CookingControllerTest {
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[2].id").value(noExpiryTofu.getId()))
 			.andExpect(jsonPath("$.data.ingredients[1].name").value("대파"))
 			.andExpect(jsonPath("$.data.ingredients[1].candidates.length()").value(0));
+	}
+
+	@Test
+	void 유통기한이_지난_재료는_지나지_않은_재료_뒤에_두고_지난_재료만_있어도_후보로_돌려준다() throws Exception {
+		FridgeItem expiredTofu = item("두부", today.minusDays(3));
+		FridgeItem freshTofu = item("두부", today.plusDays(2));
+		FridgeItem noExpiryTofu = item("두부", null);
+		FridgeItem expiredGreenOnion = item("대파", today.minusDays(1));
+
+		getCandidates(recipe.getId(), memberToken)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.ingredients[0].candidates.length()").value(3))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].id").value(freshTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[1].id").value(noExpiryTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[2].id").value(expiredTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[1].candidates.length()").value(1))
+			.andExpect(jsonPath("$.data.ingredients[1].candidates[0].id").value(expiredGreenOnion.getId()));
 	}
 
 	@Test
