@@ -70,6 +70,12 @@ public class ShoppingListItemService {
 		shoppingListItemRepository.delete(findAccessibleItem(userId, itemId));
 	}
 
+	// 지우는 순간 체크돼 있는 항목을 모두 지운다. 그사이 다른 멤버가 체크를 풀었으면 살 것이라 남긴다
+	public void deleteChecked(Long userId, Long fridgeId) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		shoppingListItemRepository.deleteCheckedByFridgeId(fridgeId);
+	}
+
 	private ShoppingListItemResponse toResponse(ShoppingListItem item) {
 		return ShoppingListItemResponse.of(item,
 			marketPriceService.findByItemNames(List.of(item.getName())).get(item.getName()));

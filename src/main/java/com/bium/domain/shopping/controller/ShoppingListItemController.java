@@ -43,6 +43,13 @@ public class ShoppingListItemController {
 			shoppingListItemService.getItems(userId, fridgeId)));
 	}
 
+	// 산 것(체크한 항목)을 한 번에 비운다
+	@DeleteMapping("/api/fridges/{fridgeId}/shopping-list-items/checked")
+	public ResponseEntity<Void> deleteChecked(@LoginUserId Long userId, @PathVariable Long fridgeId) {
+		shoppingListItemService.deleteChecked(userId, fridgeId);
+		return ResponseEntity.noContent().build();
+	}
+
 	@PatchMapping("/api/shopping-list-items/{itemId}")
 	public ResponseEntity<ApiResponse<ShoppingListItemResponse>> check(@LoginUserId Long userId,
 		@PathVariable Long itemId, @Valid @RequestBody ShoppingListItemCheckRequest request) {
