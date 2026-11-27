@@ -17,6 +17,7 @@ import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -169,6 +170,26 @@ class NotificationSettingControllerTest {
 			.andExpect(jsonPath("$.data.sentTo").value("me@bium.test"))
 			.andExpect(jsonPath("$.data.itemCount").value(1));
 		verify(mailSender).send(any(SimpleMailMessage.class));
+	}
+
+	@Test
+	void 테스트_메일도_매일_메일처럼_D_3와_D_day_설정에_맞는_재료만_담는다() throws Exception {
+		save("{\"email\": \"me@bium.test\", \"enabled\": true, \"notifyTime\": \"09:00\", \"notifyD3\": false, \"notifyDday\": true}")
+			.andExpect(status().isOk());
+		Fridge fridge = em.merge(new Fridge("강희의 냉장고"));
+		em.persist(new FridgeMember(fridge, me, MemberRole.OWNER));
+		LocalDate today = LocalDate.now(clock);
+		em.persist(FridgeItem.builder().fridge(fridge).name("우유").quantity(BigDecimal.ONE)
+			.storage(StorageType.FRIDGE).section(SectionType.CENTER).sortOrder(0).expiresAt(today).build());
+		em.persist(FridgeItem.builder().fridge(fridge).name("두부").quantity(BigDecimal.ONE)
+			.storage(StorageType.FRIDGE).section(SectionType.CENTER).sortOrder(1).expiresAt(today.plusDays(3)).build());
+
+		perform(post("/api/notification-settings/test-mail"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.itemCount").value(1));
+		ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+		verify(mailSender).send(captor.capture());
+		assertThat(captor.getValue().getText()).contains("우유").doesNotContain("두부");
 	}
 
 	@Test

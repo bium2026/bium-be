@@ -42,7 +42,7 @@ public class ExpiryMailComposer {
 	public String testBody(String nickname, List<FridgeItem> items, LocalDate today) {
 		if (items.isEmpty()) {
 			return nickname + " 님, 비움 알림 메일이 잘 도착했어요.\n"
-				+ "지금은 유통기한이 오늘이거나 3일 남은 재료가 없어요. 그런 재료가 생기면 정한 시각에 알려 드릴게요.\n";
+				+ "지금은 알림 설정에서 고른 D-day·D-3 재료가 없어요. 그런 재료가 생기면 정한 시각에 알려 드릴게요.\n";
 		}
 		return "비움 알림 메일이 잘 도착했어요. 지금 기준으로는 이렇게 보내요.\n\n" + body(nickname, items, today);
 	}
