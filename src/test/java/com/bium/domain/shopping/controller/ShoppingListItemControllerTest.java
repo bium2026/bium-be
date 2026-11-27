@@ -312,6 +312,45 @@ class ShoppingListItemControllerTest {
 	}
 
 	@Test
+	void 체크한_항목을_한꺼번에_비우면_204를_반환하고_안_산_항목과_다른_냉장고의_항목은_남긴다() throws Exception {
+		Fridge others = em.merge(new Fridge("남의 냉장고"));
+		em.persist(new FridgeMember(others, stranger, MemberRole.OWNER));
+		ShoppingListItem othersBought = item(others, "남의 우유", null);
+		othersBought.check(true);
+		ShoppingListItem tofu = item(fridge, "두부", null);
+		tofu.check(true);
+		ShoppingListItem egg = item(fridge, "계란", null);
+		egg.check(true);
+		ShoppingListItem milk = item(fridge, "우유", null);
+
+		clearChecked(memberToken)
+			.andExpect(status().isNoContent())
+			.andExpect(content().string(""));
+
+		assertThat(reload(tofu.getId())).isNull();
+		assertThat(reload(egg.getId())).isNull();
+		assertThat(reload(milk.getId())).isNotNull();
+		assertThat(reload(othersBought.getId())).isNotNull();
+		// 비울 항목이 없어도 같은 결과다
+		clearChecked(ownerToken).andExpect(status().isNoContent());
+		assertThat(countItems()).isEqualTo(2);
+	}
+
+	@Test
+	void 멤버가_아니면_체크한_항목을_비울_수_없다() throws Exception {
+		ShoppingListItem tofu = item(fridge, "두부", null);
+		tofu.check(true);
+
+		clearChecked(strangerToken)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_NOT_FOUND"));
+		mockMvc.perform(delete("/api/fridges/{fridgeId}/shopping-list-items/checked", fridge.getId()))
+			.andExpect(status().isUnauthorized());
+
+		assertThat(reload(tofu.getId())).isNotNull();
+	}
+
+	@Test
 	void 멤버가_아니면_목록을_보거나_담을_수_없다() throws Exception {
 		getItems(strangerToken)
 			.andExpect(status().isNotFound())
@@ -443,6 +482,11 @@ class ShoppingListItemControllerTest {
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body));
+	}
+
+	private ResultActions clearChecked(String token) throws Exception {
+		return mockMvc.perform(delete("/api/fridges/{fridgeId}/shopping-list-items/checked", fridge.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
 	}
 
 	private ResultActions remove(Long itemId, String token) throws Exception {
