@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,6 +36,14 @@ public class FridgeMemberController {
 	public ResponseEntity<Void> leave(@LoginUserId Long userId, @PathVariable Long fridgeId) {
 		fridgeMemberService.leave(userId, fridgeId);
 		return ResponseEntity.noContent().build();
+	}
+
+	// 소유자를 그 멤버에게 넘기고, 넘긴 뒤의 멤버 목록을 준다
+	@PutMapping("/{userId}/owner")
+	public ResponseEntity<ApiResponse<List<FridgeMemberResponse>>> transferOwner(@LoginUserId Long userId,
+		@PathVariable Long fridgeId, @PathVariable("userId") Long targetUserId) {
+		return ResponseEntity.ok(ApiResponse.success(
+			fridgeMemberService.transferOwner(userId, fridgeId, targetUserId)));
 	}
 
 	@DeleteMapping("/{userId}")

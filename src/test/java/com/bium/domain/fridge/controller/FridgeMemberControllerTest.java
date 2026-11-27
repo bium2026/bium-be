@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -199,12 +200,78 @@ class FridgeMemberControllerTest {
 	}
 
 	@Test
+	void 소유자는_다른_멤버에게_소유자를_넘기고_일반_멤버가_된다() throws Exception {
+		transfer(ownerToken, secondMember)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(3))
+			.andExpect(jsonPath("$.data[0].userId").value(secondMember.getId()))
+			.andExpect(jsonPath("$.data[0].role").value("OWNER"))
+			.andExpect(jsonPath("$.data[?(@.isMe == true)].role").value("MEMBER"));
+
+		assertThat(roleOf(owner)).isEqualTo(MemberRole.MEMBER);
+		assertThat(roleOf(secondMember)).isEqualTo(MemberRole.OWNER);
+		assertThat(roleOf(firstMember)).isEqualTo(MemberRole.MEMBER);
+		mockMvc.perform(get("/api/fridges/{fridgeId}/activities", fridge.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
+			.andExpect(jsonPath("$.data[0].action").value("TRANSFER_OWNER"))
+			.andExpect(jsonPath("$.data[0].nickname").value("윤호"))
+			.andExpect(jsonPath("$.data[0].targetNickname").value("강희"));
+	}
+
+	@Test
+	void 소유자를_넘긴_뒤에는_예전_소유자가_소유자_일을_못_하고_나갈_수_있다() throws Exception {
+		transfer(ownerToken, secondMember).andExpect(status().isOk());
+
+		remove(ownerToken, firstMember)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_OWNER_ONLY"));
+		transfer(ownerToken, firstMember)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_OWNER_ONLY"));
+		leave(ownerToken)
+			.andExpect(status().isNoContent());
+
+		assertThat(isMember(owner)).isFalse();
+		assertThat(roleOf(secondMember)).isEqualTo(MemberRole.OWNER);
+	}
+
+	@Test
+	void 소유자가_아니면_소유자를_넘길_수_없다() throws Exception {
+		transfer(memberToken, secondMember)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_OWNER_ONLY"));
+		transfer(memberToken, firstMember)
+			.andExpect(status().isForbidden());
+		transfer(strangerToken, secondMember)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_NOT_FOUND"));
+
+		assertThat(roleOf(owner)).isEqualTo(MemberRole.OWNER);
+		assertThat(roleOf(firstMember)).isEqualTo(MemberRole.MEMBER);
+		assertThat(roleOf(secondMember)).isEqualTo(MemberRole.MEMBER);
+	}
+
+	@Test
+	void 지금_멤버에게만_소유자를_넘길_수_있고_자기_자신에게는_넘길_수_없다() throws Exception {
+		transfer(ownerToken, stranger)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_MEMBER_NOT_FOUND"));
+		transfer(ownerToken, owner)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.error.code").value("ALREADY_FRIDGE_OWNER"));
+
+		assertThat(roleOf(owner)).isEqualTo(MemberRole.OWNER);
+	}
+
+	@Test
 	void 로그인하지_않으면_401을_반환한다() throws Exception {
 		mockMvc.perform(get("/api/fridges/{fridgeId}/members", fridge.getId()))
 			.andExpect(status().isUnauthorized());
 		mockMvc.perform(delete("/api/fridges/{fridgeId}/members/me", fridge.getId()))
 			.andExpect(status().isUnauthorized());
 		mockMvc.perform(delete("/api/fridges/{fridgeId}/members/{userId}", fridge.getId(), firstMember.getId()))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(put("/api/fridges/{fridgeId}/members/{userId}/owner", fridge.getId(), firstMember.getId()))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -216,6 +283,17 @@ class FridgeMemberControllerTest {
 	private ResultActions remove(String token, User target) throws Exception {
 		return mockMvc.perform(delete("/api/fridges/{fridgeId}/members/{userId}", fridge.getId(), target.getId())
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+	}
+
+	private ResultActions transfer(String token, User target) throws Exception {
+		return mockMvc.perform(put("/api/fridges/{fridgeId}/members/{userId}/owner", fridge.getId(), target.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+	}
+
+	private MemberRole roleOf(User user) {
+		em.flush();
+		em.clear();
+		return fridgeMemberRepository.findByFridgeIdAndUserId(fridge.getId(), user.getId()).orElseThrow().getRole();
 	}
 
 	private ResultActions leave(String token) throws Exception {

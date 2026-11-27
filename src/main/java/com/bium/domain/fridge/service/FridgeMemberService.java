@@ -14,6 +14,7 @@ import com.bium.domain.fridge.entity.FridgeMember;
 import com.bium.domain.fridge.entity.MemberRole;
 import com.bium.domain.fridge.repository.FridgeInviteRepository;
 import com.bium.domain.fridge.repository.FridgeMemberRepository;
+import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.global.exception.BusinessException;
 import com.bium.global.exception.ErrorCode;
 
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 냉장고를 함께 쓰는 멤버를 보여 주고, 내보내거나 스스로 나가게 한다.
  * 소유자가 빠지면 초대와 내보내기를 할 사람이 없어지므로 소유자는 나가거나 내보내질 수 없다.
+ * 소유자는 다른 멤버에게 소유자를 넘길 수 있고, 넘긴 뒤에는 일반 멤버가 되어 나갈 수도 있다.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class FridgeMemberService {
 
 	private final FridgeMemberRepository fridgeMemberRepository;
+	private final FridgeRepository fridgeRepository;
 	private final FridgeInviteRepository fridgeInviteRepository;
 	private final FridgeAccessValidator fridgeAccessValidator;
 	private final ActivityLogService activityLogService;
@@ -56,6 +59,24 @@ public class FridgeMemberService {
 		activityLogService.recordRemoval(userId, fridgeId, targetUserId);
 		// 내보낸 사람이 아직 쓸 수 있는 코드로 바로 다시 들어오지 못하게 지금 코드도 막는다
 		fridgeInviteRepository.findAllActiveByFridgeIdForUpdate(fridgeId).forEach(FridgeInvite::deactivate);
+	}
+
+	// 넘긴 뒤의 멤버 목록을 준다. 소유자가 둘이 되지 않게 냉장고 행을 잠근 뒤 소유자인지 확인한다
+	public List<FridgeMemberResponse> transferOwner(Long userId, Long fridgeId, Long targetUserId) {
+		fridgeRepository.findByIdForUpdate(fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		fridgeAccessValidator.validateOwner(fridgeId, userId);
+		if (userId.equals(targetUserId)) {
+			throw new BusinessException(ErrorCode.ALREADY_FRIDGE_OWNER);
+		}
+		FridgeMember target = fridgeMemberRepository.findByFridgeIdAndUserId(fridgeId, targetUserId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_MEMBER_NOT_FOUND));
+		FridgeMember me = fridgeMemberRepository.findByFridgeIdAndUserId(fridgeId, userId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+		me.changeRole(MemberRole.MEMBER);
+		target.changeRole(MemberRole.OWNER);
+		activityLogService.recordOwnerTransfer(userId, fridgeId, targetUserId);
+		return getMembers(userId, fridgeId);
 	}
 
 	public void leave(Long userId, Long fridgeId) {

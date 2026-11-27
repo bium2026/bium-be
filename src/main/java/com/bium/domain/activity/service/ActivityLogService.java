@@ -74,11 +74,21 @@ public class ActivityLogService {
 	// 주인이 멤버를 내보낸 기록을 주인이 행동한 것으로 남기고, 내보내진 사람은 targetUser에 남긴다
 	@Transactional(propagation = Propagation.MANDATORY)
 	public void recordRemoval(Long ownerId, Long fridgeId, Long targetUserId) {
+		recordOwnerAction(ownerId, fridgeId, targetUserId, ActivityAction.REMOVE);
+	}
+
+	// 주인 권한을 넘긴 기록을 넘긴 주인이 행동한 것으로 남기고, 새 주인은 targetUser에 남긴다
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void recordOwnerTransfer(Long ownerId, Long fridgeId, Long newOwnerId) {
+		recordOwnerAction(ownerId, fridgeId, newOwnerId, ActivityAction.TRANSFER_OWNER);
+	}
+
+	private void recordOwnerAction(Long ownerId, Long fridgeId, Long targetUserId, ActivityAction action) {
 		activityLogRepository.save(ActivityLog.builder()
 			.fridge(fridgeRepository.getReferenceById(fridgeId))
 			.user(userRepository.getReferenceById(ownerId))
 			.targetUser(userRepository.getReferenceById(targetUserId))
-			.action(ActivityAction.REMOVE)
+			.action(action)
 			.build());
 	}
 

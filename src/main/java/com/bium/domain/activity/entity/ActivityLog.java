@@ -55,7 +55,7 @@ public class ActivityLog {
 	@JoinColumn(name = "cooking_log_id")
 	private CookingLog cookingLog;
 
-	// 멤버를 내보낸 기록이면 내보내진 사람을 남긴다. 기록의 user는 내보낸 주인이다
+	// 멤버를 내보낸 기록이면 내보내진 사람을, 주인을 넘긴 기록이면 새 주인을 남긴다. 기록의 user는 그 일을 한 주인이다
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "target_user_id")
 	private User targetUser;
