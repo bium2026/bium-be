@@ -1,6 +1,7 @@
 package com.bium.domain.ingredient.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -113,6 +114,20 @@ class FridgeItemControllerTest {
 	void 여러_글자로_이뤄진_이모지는_받는다() throws Exception {
 		update(tofu.getId(), memberToken, "{\"name\": \"두부\", \"emoji\": \"🧑‍🍳\", \"version\": 0}")
 			.andExpect(status().isOk());
+	}
+
+	@Test
+	void 아이콘이_이모지_한_개가_아니면_400을_반환하고_비우면_아이콘을_지운다() throws Exception {
+		update(tofu.getId(), memberToken, "{\"name\": \"두부\", \"emoji\": \"두부\", \"version\": 0}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"))
+			.andExpect(jsonPath("$.error.message").value("아이콘은 이모지 한 개로 넣어 주세요."));
+		update(tofu.getId(), memberToken, "{\"name\": \"두부\", \"emoji\": \"🧊🧊\", \"version\": 0}")
+			.andExpect(status().isBadRequest());
+
+		update(tofu.getId(), memberToken, "{\"name\": \"두부\", \"emoji\": \"\", \"version\": 0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.emoji").value(nullValue()));
 	}
 
 	@Test

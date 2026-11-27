@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -115,6 +116,39 @@ class FridgeItemPositionControllerTest {
 		assertThat(reload(milk).getSortOrder()).isZero();
 		assertThat(reload(egg).getSortOrder()).isEqualTo(1);
 		assertThat(reload(milk).getVersion()).isZero();
+	}
+
+	@Test
+	void 재료가_5개인_문칸으로는_옮기지_않고_409를_반환한다() throws Exception {
+		for (int sortOrder = 0; sortOrder < 5; sortOrder++) {
+			item("소스" + sortOrder, SectionType.RIGHT_DOOR, sortOrder);
+		}
+
+		changePosition(tofu, memberToken, "FRIDGE", "RIGHT_DOOR", 0, 0)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_DOOR_FULL"));
+
+		assertThat(namesIn(StorageType.FRIDGE, SectionType.RIGHT_DOOR)).hasSize(5);
+		assertThat(centerNames()).containsExactly("두부", "우유", "계란");
+	}
+
+	@Test
+	void 가득_찬_문칸_안에서_순서를_바꾸거나_4개인_문칸으로_옮기는_것은_된다() throws Exception {
+		List<FridgeItem> sauces = new ArrayList<>();
+		for (int sortOrder = 0; sortOrder < 5; sortOrder++) {
+			sauces.add(item("소스" + sortOrder, SectionType.RIGHT_DOOR, sortOrder));
+		}
+		for (int sortOrder = 0; sortOrder < 4; sortOrder++) {
+			item("잼" + sortOrder, SectionType.LEFT_DOOR, sortOrder);
+		}
+
+		changePosition(sauces.get(4), memberToken, "FRIDGE", "RIGHT_DOOR", 0, 0)
+			.andExpect(status().isOk());
+		changePosition(tofu, memberToken, "FRIDGE", "LEFT_DOOR", 0, 0)
+			.andExpect(status().isOk());
+
+		assertThat(namesIn(StorageType.FRIDGE, SectionType.RIGHT_DOOR)).first().isEqualTo("소스4");
+		assertThat(namesIn(StorageType.FRIDGE, SectionType.LEFT_DOOR)).hasSize(5).first().isEqualTo("두부");
 	}
 
 	@Test

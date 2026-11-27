@@ -3,6 +3,7 @@ package com.bium.domain.feed.controller;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -110,6 +111,39 @@ class FeedCommentControllerTest {
 		mockMvc.perform(delete("/api/feed/fridges/{fridgeId}/comments/{commentId}", fridge.getId(), comment.getId())
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + viewerToken))
 			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void 내_코멘트를_고치면_200과_고친_코멘트를_주고_쓸_때와_같게_검사한다() throws Exception {
+		FeedComment comment = new FeedComment(fridge, viewer, "구경 잘 했어요", null);
+		em.persist(comment);
+
+		update(comment, viewerToken, "{\"content\":\"두부가 많네요\",\"dishName\":\"마파두부\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.commentId").value(comment.getId()))
+			.andExpect(jsonPath("$.data.content").value("두부가 많네요"))
+			.andExpect(jsonPath("$.data.dishName").value("마파두부"));
+		update(comment, viewerToken, "{\"content\":\"  \"}").andExpect(status().isBadRequest());
+		update(comment, viewerToken, "{\"content\":\"" + "가".repeat(201) + "\"}").andExpect(status().isBadRequest());
+		update(comment, viewerToken, "{\"content\":\"좋아요\",\"dishName\":\"마파\\n두부\"}")
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void 남의_코멘트를_고치면_403을_준다() throws Exception {
+		FeedComment comment = new FeedComment(fridge, viewer, "구경 잘 했어요", null);
+		em.persist(comment);
+
+		update(comment, strangerToken, "{\"content\":\"바꿨어요\"}")
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.error.code").value("FEED_COMMENT_EDIT_FORBIDDEN"));
+	}
+
+	private ResultActions update(FeedComment comment, String token, String body) throws Exception {
+		return mockMvc.perform(put("/api/feed/fridges/{fridgeId}/comments/{commentId}", fridge.getId(), comment.getId())
+			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
 	}
 
 	private ResultActions create(String body) throws Exception {

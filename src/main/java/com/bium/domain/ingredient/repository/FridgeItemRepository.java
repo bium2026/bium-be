@@ -73,9 +73,4 @@ public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 	@Query("select i from FridgeItem i where i.id = :id and i.deletedAt is null")
 	Optional<FridgeItem> findByIdForUpdate(Long id);
 
-	// 칸에 재료가 없으면 null
-	@Query("select max(i.sortOrder) from FridgeItem i where i.fridge.id = :fridgeId and i.storage = :storage"
-		+ " and i.section = :section and i.deletedAt is null")
-	Integer findMaxSortOrder(Long fridgeId, StorageType storage, SectionType section);
-
 }

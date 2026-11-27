@@ -128,6 +128,13 @@ class IngredientCatalogImageControllerTest {
 	}
 
 	@Test
+	void 다른_사람의_재료면_사진_파일을_검사하기_전에_404를_준다() throws Exception {
+		upload(tofu.getId(), otherToken, new MockMultipartFile("image", "a.png", "image/png", "not image".getBytes()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error.code").value("CATALOG_NOT_FOUND"));
+	}
+
+	@Test
 	void 기본_재료에_올린_사진은_올린_사람의_도감에만_보인다() throws Exception {
 		IngredientCatalog onion = catalog(null, "기본양파");
 

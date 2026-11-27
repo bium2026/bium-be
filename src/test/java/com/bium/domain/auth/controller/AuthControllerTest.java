@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.user.entity.User;
 import com.bium.domain.user.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 
@@ -71,6 +72,24 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.error.message").value("이메일을 입력해 주세요."));
 
 		assertThat(userRepository.count()).isZero();
+	}
+
+	@Test
+	void 닉네임의_앞뒤_공백을_지우고_공백만_넣으면_가입하지_않는다() throws Exception {
+		signup("{\"email\": \"new@bium.test\", \"password\": \"bium2026\", \"nickname\": \"  강희\u3000\"}")
+			.andExpect(status().isCreated());
+		assertThat(userRepository.findAllByEmail("new@bium.test")).extracting(User::getNickname)
+			.containsExactly("강희");
+
+		signup("{\"email\": \"other@bium.test\", \"password\": \"bium2026\", \"nickname\": \"    \"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"))
+			.andExpect(jsonPath("$.error.message").value("닉네임을 입력해 주세요."));
+		signup("{\"email\": \"other@bium.test\", \"password\": \"bium2026\", \"nickname\": \" 강 \"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("닉네임은 2~10자여야 합니다."));
+
+		assertThat(userRepository.count()).isEqualTo(1);
 	}
 
 	@Test

@@ -119,6 +119,22 @@ class PurchasedItemMoveControllerTest {
 	}
 
 	@Test
+	void 재료가_5개인_문칸에는_장본_음식을_넣지_않고_409를_반환한다() throws Exception {
+		for (int sortOrder = 0; sortOrder < 5; sortOrder++) {
+			fridgeItem("소스" + sortOrder, sortOrder);
+		}
+
+		move(tofu, memberToken, "FRIDGE", "LEFT_DOOR", 0)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.error.code").value("FRIDGE_DOOR_FULL"));
+
+		em.flush();
+		em.clear();
+		assertThat(em.find(PurchasedItem.class, tofu.getId()).getMovedAt()).isNull();
+		assertThat(countFridgeItems()).isEqualTo(5);
+	}
+
+	@Test
 	void 멤버가_아니면_장본_음식을_옮길_수_없다() throws Exception {
 		User stranger = em.merge(new User("stranger", "password", "남"));
 

@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
  * 피드 냉장고를 구경한 사람이 남기는 코멘트와 음식 추천.
  * 코멘트는 공개한 냉장고에만 쓸 수 있고, 보기는 피드 냉장고를 볼 수 있는 사람(공개 냉장고는 누구나, 아니면 멤버)만 한다.
  * 지우기는 쓴 사람이나 냉장고 주인만 할 수 있다. 쓴 사람은 냉장고가 비공개로 바뀐 뒤에도 자기 코멘트를 지울 수 있다.
+ * 고치기는 쓴 사람만 하고, 보기처럼 피드 냉장고를 볼 수 있어야 한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -62,6 +63,19 @@ public class FeedCommentService {
 			.toList();
 		Long nextCursor = hasNext ? shown.get(shown.size() - 1).getId() : null;
 		return new FeedCommentPageResponse(responses, nextCursor);
+	}
+
+	// 음식 이름을 비우면 추천하지 않은 코멘트로 바뀐다
+	@Transactional
+	public FeedCommentResponse update(Long userId, Long fridgeId, Long commentId, FeedCommentCreateRequest request) {
+		feedService.findViewableFridge(userId, fridgeId);
+		FeedComment comment = feedCommentRepository.findByIdAndFridgeId(commentId, fridgeId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.FEED_COMMENT_NOT_FOUND));
+		if (!comment.getUser().getId().equals(userId)) {
+			throw new BusinessException(ErrorCode.FEED_COMMENT_EDIT_FORBIDDEN);
+		}
+		comment.edit(request.content(), request.dishName());
+		return FeedCommentResponse.of(comment, userId, isOwner(fridgeId, userId));
 	}
 
 	@Transactional

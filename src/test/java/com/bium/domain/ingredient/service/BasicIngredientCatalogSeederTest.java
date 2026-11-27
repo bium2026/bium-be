@@ -19,6 +19,7 @@ import com.bium.domain.ingredient.entity.IngredientCategory;
 import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.ingredient.repository.IngredientCatalogRepository;
 import com.bium.domain.ingredient.service.BasicIngredientCatalogSeeder.BasicIngredient;
+import com.bium.global.util.TextPatterns;
 
 class BasicIngredientCatalogSeederTest {
 
@@ -34,7 +35,7 @@ class BasicIngredientCatalogSeederTest {
 		// 사용자가 도감에 추가할 때의 검증(IngredientCatalogCreateRequest)과 같은 범위를 지킨다
 		assertThat(ingredients).allSatisfy(ingredient -> {
 			assertThat(ingredient.name()).isNotBlank().hasSizeLessThanOrEqualTo(30).isEqualTo(ingredient.name().strip());
-			assertThat(ingredient.emoji()).isNotBlank().hasSizeLessThanOrEqualTo(16);
+			assertThat(ingredient.emoji()).isNotBlank().hasSizeLessThanOrEqualTo(16).matches(TextPatterns.SINGLE_EMOJI);
 			assertThat(ingredient.shelfLifeDays()).isBetween(1, 365);
 		});
 		assertThat(ingredients).extracting(BasicIngredient::category)

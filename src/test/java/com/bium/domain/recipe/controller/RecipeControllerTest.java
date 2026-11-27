@@ -237,7 +237,8 @@ class RecipeControllerTest {
 
 		recommend(fridge.getId(), ownerToken, "{}")
 			.andExpect(status().isServiceUnavailable())
-			.andExpect(jsonPath("$.error.code").value("AI_QUOTA_EXCEEDED"));
+			.andExpect(jsonPath("$.error.code").value("AI_QUOTA_EXCEEDED"))
+			.andExpect(jsonPath("$.error.message").value("AI 사용 한도를 넘었습니다. 잠시 후 다시 시도해 주세요."));
 		assertThat(recipeRepository.count()).isZero();
 	}
 

@@ -32,7 +32,7 @@ class CorsConfigTest {
 	@Test
 	void 로컬의_다른_포트와_ngrok_주소도_통과한다() throws Exception {
 		for (String origin : new String[] {"http://localhost:4173", "https://ab12-34-56.ngrok-free.app",
-			"https://bium.ngrok.app"}) {
+			"https://bium.ngrok.app", "https://bium-fe.ngrok-free.dev", "https://bium.ngrok.dev"}) {
 			mockMvc.perform(options("/api/fridges")
 					.header(HttpHeaders.ORIGIN, origin)
 					.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
@@ -45,7 +45,7 @@ class CorsConfigTest {
 	@Test
 	void ngrok을_흉내_낸_주소나_http_ngrok_주소는_거부한다() throws Exception {
 		for (String origin : new String[] {"https://ngrok-free.app.evil.com", "https://evilngrok-free.app",
-			"http://ab12.ngrok-free.app"}) {
+			"http://ab12.ngrok-free.app", "https://ngrok-free.dev.evil.com", "http://ab12.ngrok-free.dev"}) {
 			mockMvc.perform(options("/api/fridges")
 					.header(HttpHeaders.ORIGIN, origin)
 					.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))

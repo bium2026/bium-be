@@ -157,6 +157,32 @@ class BasicIngredientCatalogControllerTest {
 	}
 
 	@Test
+	void 도감에_추가하거나_냉장고에_넣을_때_아이콘이_이모지_한_개가_아니면_400을_반환한다() throws Exception {
+		mockMvc.perform(post("/api/ingredient-catalogs").header(auth(), bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"name": "엄마표 김치", "emoji": "김치", "category": "ETC", "shelfLifeDays": 30}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.code").value("INVALID_INPUT"))
+			.andExpect(jsonPath("$.error.message").value("아이콘은 이모지 한 개로 넣어 주세요."));
+		mockMvc.perform(post("/api/fridges/{fridgeId}/items", fridge.getId()).header(auth(), bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"catalogId": %d, "name": "양파", "emoji": "🧅🧅", "storage": "ROOM"}
+					""".formatted(onion.getId())))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error.message").value("아이콘은 이모지 한 개로 넣어 주세요."));
+
+		mockMvc.perform(post("/api/fridges/{fridgeId}/items", fridge.getId()).header(auth(), bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"catalogId": %d, "name": "양파", "emoji": "", "storage": "ROOM"}
+					""".formatted(onion.getId())))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
 	void 기본_재료를_장본_음식에_담는다() throws Exception {
 		mockMvc.perform(post("/api/fridges/{fridgeId}/purchased-items", fridge.getId()).header(auth(), bearer())
 				.contentType(MediaType.APPLICATION_JSON)

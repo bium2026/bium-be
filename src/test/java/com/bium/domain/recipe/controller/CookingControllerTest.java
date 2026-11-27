@@ -93,7 +93,9 @@ class CookingControllerTest {
 			.andExpect(jsonPath("$.data.ingredients[0].amount").value("1모"))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates.length()").value(3))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].id").value(earlyTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].name").value("순두부"))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].version").value(0))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].expired").value(false))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[1].id").value(lateTofu.getId()))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[2].id").value(noExpiryTofu.getId()))
 			.andExpect(jsonPath("$.data.ingredients[1].name").value("대파"))
@@ -101,7 +103,7 @@ class CookingControllerTest {
 	}
 
 	@Test
-	void 유통기한이_지난_재료는_지나지_않은_재료_뒤에_두고_지난_재료만_있어도_후보로_돌려준다() throws Exception {
+	void 유통기한이_지난_재료는_지났다고_표시해_지나지_않은_재료_뒤에_두고_지난_재료만_있어도_후보로_돌려준다() throws Exception {
 		FridgeItem expiredTofu = item("두부", today.minusDays(3));
 		FridgeItem freshTofu = item("두부", today.plusDays(2));
 		FridgeItem noExpiryTofu = item("두부", null);
@@ -111,10 +113,15 @@ class CookingControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.ingredients[0].candidates.length()").value(3))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].id").value(freshTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[0].expired").value(false))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[1].id").value(noExpiryTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[1].expired").value(false))
 			.andExpect(jsonPath("$.data.ingredients[0].candidates[2].id").value(expiredTofu.getId()))
+			.andExpect(jsonPath("$.data.ingredients[0].candidates[2].expired").value(true))
 			.andExpect(jsonPath("$.data.ingredients[1].candidates.length()").value(1))
-			.andExpect(jsonPath("$.data.ingredients[1].candidates[0].id").value(expiredGreenOnion.getId()));
+			.andExpect(jsonPath("$.data.ingredients[1].candidates[0].id").value(expiredGreenOnion.getId()))
+			.andExpect(jsonPath("$.data.ingredients[1].candidates[0].expiresAt").value(today.minusDays(1).toString()))
+			.andExpect(jsonPath("$.data.ingredients[1].candidates[0].expired").value(true));
 	}
 
 	@Test

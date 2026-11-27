@@ -74,7 +74,8 @@ public class ExpiryNotificationService {
 	}
 
 	// 알림 설정 화면의 '테스트 메일 보내기'. 오늘 알림을 보냈는지와 상관없이 지금 기준 재료로 바로 보낸다.
-	// 설정을 저장한 적이 없으면 화면에 기본값으로 보이는 로그인 이메일로 보낸다
+	// 재료는 매일 메일과 같이 D-3·D-day 설정으로 고른다.
+	// 설정을 저장한 적이 없으면 화면에 기본값으로 보이는 로그인 이메일로, D-3·D-day 재료를 모두 담아 보낸다
 	public NotificationTestResponse sendTest(Long userId, LocalDate today) {
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
@@ -84,8 +85,13 @@ public class ExpiryNotificationService {
 		if (email == null) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_EMAIL_REQUIRED);
 		}
-		List<FridgeItem> items = findItems(userId, List.of(today, today.plusDays(D3_DAYS)));
-		if (!send(user, email, composer.testSubject(), composer.testBody(user.getNickname(), items, today), items.size())) {
+		List<LocalDate> dates = setting.map(saved -> dates(saved, today))
+			.orElseGet(() -> List.of(today, today.plusDays(D3_DAYS)));
+		List<FridgeItem> items = findItems(userId, dates);
+		// 설정 줄이 없으면 화면 기본값처럼 켜져 있다고 본다
+		boolean enabled = setting.map(NotificationSetting::isEnabled).orElse(true);
+		if (!send(user, email, composer.testSubject(), composer.testBody(user.getNickname(), items, today, enabled),
+			items.size())) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_MAIL_FAILED);
 		}
 		return new NotificationTestResponse(email, items.size());
