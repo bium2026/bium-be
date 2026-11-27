@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 유통기한이 오늘(D-day)이거나 3일 남은(D-3) 재료를 이메일로 알린다.
  * 메일은 느리고 실패할 수 있어 트랜잭션 밖에서 보내고, 보낼 차례 차지·재료 조회·기록은 각각 짧은 트랜잭션으로 한다.
+ * 차례를 잡은 날(lastCheckedDate)과 메일을 실제로 보낸 날(lastSentDate)을 따로 적어, 보내지 않은 날은 보낸 날로 보이지 않게 한다.
  */
 @Slf4j
 @Service
@@ -65,6 +66,7 @@ public class ExpiryNotificationService {
 			User user = setting.getUser();
 			if (send(user, setting.getEmail(), composer.subject(items.size()),
 				composer.body(user.getNickname(), items, today), items.size())) {
+				transactionTemplate.executeWithoutResult(status -> settingRepository.markSent(userId, today));
 				sent++;
 			}
 		}

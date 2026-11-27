@@ -12,15 +12,23 @@ import com.bium.domain.notification.entity.NotificationSetting;
 
 public interface NotificationSettingRepository extends JpaRepository<NotificationSetting, Long> {
 
-	// 알림을 켰고 받을 이메일이 있으며, 알림 시각이 지났는데 오늘 아직 보내지 않은 사용자
+	// 알림을 켰고 받을 이메일이 있으며, 알림 시각이 지났는데 오늘 아직 차례를 잡지 않은 사용자.
+	// lastSentDate도 보는 것은 예전에 lastSentDate로 차례를 잡던 줄이 오늘 이미 보낸 경우를 건너뛰기 위해서다
 	@Query("select s from NotificationSetting s join fetch s.user where s.enabled = true and s.email is not null"
-		+ " and s.notifyTime <= :now and (s.lastSentDate is null or s.lastSentDate < :today)")
+		+ " and s.notifyTime <= :now and (s.lastCheckedDate is null or s.lastCheckedDate < :today)"
+		+ " and (s.lastSentDate is null or s.lastSentDate < :today)")
 	List<NotificationSetting> findDue(LocalTime now, LocalDate today);
 
 	// 오늘 보낼 차례를 먼저 차지한다. 예약 작업이 겹치거나 서버가 여러 대여도 한 요청만 1을 받아 같은 날 두 번 보내지 않는다
 	@Modifying
-	@Query("update NotificationSetting s set s.lastSentDate = :today where s.userId = :userId"
+	@Query("update NotificationSetting s set s.lastCheckedDate = :today where s.userId = :userId"
+		+ " and (s.lastCheckedDate is null or s.lastCheckedDate < :today)"
 		+ " and (s.lastSentDate is null or s.lastSentDate < :today)")
 	int claimToday(Long userId, LocalDate today);
+
+	// 예약 알림 메일을 보낸 날을 적는다. 화면의 '마지막으로 보낸 날'이다
+	@Modifying
+	@Query("update NotificationSetting s set s.lastSentDate = :today where s.userId = :userId")
+	void markSent(Long userId, LocalDate today);
 
 }
