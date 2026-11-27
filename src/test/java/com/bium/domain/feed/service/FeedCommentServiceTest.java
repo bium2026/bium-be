@@ -215,6 +215,77 @@ class FeedCommentServiceTest {
 			.extracting("errorCode").isEqualTo(ErrorCode.FEED_COMMENT_NOT_FOUND);
 	}
 
+	@Test
+	void 쓴_사람은_자기_코멘트의_내용과_추천한_음식을_고친다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+
+		FeedCommentResponse response = feedCommentService.update(viewer.getId(), fridge.getId(), comment.getId(),
+			new FeedCommentCreateRequest(" 두부가 많네요! ", " 마파두부 "));
+
+		assertThat(response.content()).isEqualTo("두부가 많네요!");
+		assertThat(response.dishName()).isEqualTo("마파두부");
+		assertThat(response.mine()).isTrue();
+		em.flush();
+		em.clear();
+		FeedComment saved = em.find(FeedComment.class, comment.getId());
+		assertThat(saved.getContent()).isEqualTo("두부가 많네요!");
+		assertThat(saved.getDishName()).isEqualTo("마파두부");
+	}
+
+	@Test
+	void 음식_이름을_비워_고치면_추천하지_않은_코멘트가_된다() {
+		FeedComment comment = new FeedComment(fridge, viewer, "두부가 많네요", "마파두부");
+		em.persist(comment);
+
+		FeedCommentResponse response = feedCommentService.update(viewer.getId(), fridge.getId(), comment.getId(),
+			new FeedCommentCreateRequest("두부가 많네요", " "));
+
+		assertThat(response.dishName()).isNull();
+	}
+
+	@Test
+	void 냉장고_주인이라도_남이_쓴_코멘트는_고칠_수_없다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+
+		for (User other : List.of(owner, member, stranger)) {
+			assertThatThrownBy(() -> feedCommentService.update(other.getId(), fridge.getId(), comment.getId(),
+				new FeedCommentCreateRequest("바꿨어요", null)))
+				.isInstanceOf(BusinessException.class)
+				.extracting("errorCode").isEqualTo(ErrorCode.FEED_COMMENT_EDIT_FORBIDDEN);
+		}
+		em.flush();
+		em.clear();
+		assertThat(em.find(FeedComment.class, comment.getId()).getContent()).isEqualTo("구경 잘 했어요");
+	}
+
+	@Test
+	void 비공개로_바뀐_냉장고의_코멘트는_멤버만_고치고_볼_수_없는_사람에게는_없는_냉장고와_같은_오류를_준다() {
+		FeedComment memberComment = comment(member, "우유가 있네요");
+		FeedComment viewerComment = comment(viewer, "구경 잘 했어요");
+		fridge.changeVisibility(false);
+
+		FeedCommentResponse response = feedCommentService.update(member.getId(), fridge.getId(),
+			memberComment.getId(), new FeedCommentCreateRequest("우유가 많네요", null));
+		assertThat(response.content()).isEqualTo("우유가 많네요");
+		assertThatThrownBy(() -> feedCommentService.update(viewer.getId(), fridge.getId(), viewerComment.getId(),
+			new FeedCommentCreateRequest("바꿨어요", null)))
+			.isInstanceOf(BusinessException.class)
+			.extracting("errorCode").isEqualTo(ErrorCode.FRIDGE_NOT_FOUND);
+	}
+
+	@Test
+	void 다른_냉장고의_주소로는_코멘트를_고칠_수_없다() {
+		FeedComment comment = comment(viewer, "구경 잘 했어요");
+		Fridge other = em.merge(new Fridge("윤호의 냉장고"));
+		em.persist(new FridgeMember(other, viewer, MemberRole.OWNER));
+		other.changeVisibility(true);
+
+		assertThatThrownBy(() -> feedCommentService.update(viewer.getId(), other.getId(), comment.getId(),
+			new FeedCommentCreateRequest("바꿨어요", null)))
+			.isInstanceOf(BusinessException.class)
+			.extracting("errorCode").isEqualTo(ErrorCode.FEED_COMMENT_NOT_FOUND);
+	}
+
 	private FeedComment comment(User author, String content) {
 		FeedComment comment = new FeedComment(fridge, author, content, null);
 		em.persist(comment);

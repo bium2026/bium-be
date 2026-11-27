@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -39,6 +40,14 @@ public class FeedCommentController {
 	public ResponseEntity<ApiResponse<FeedCommentPageResponse>> getComments(@LoginUserId Long userId,
 		@PathVariable Long fridgeId, @RequestParam(required = false) Long cursor) {
 		return ResponseEntity.ok(ApiResponse.success(feedCommentService.getComments(userId, fridgeId, cursor)));
+	}
+
+	// 고칠 때도 쓸 때와 같은 조건으로 검사한다
+	@PutMapping("/{commentId}")
+	public ResponseEntity<ApiResponse<FeedCommentResponse>> update(@LoginUserId Long userId,
+		@PathVariable Long fridgeId, @PathVariable Long commentId, @Valid @RequestBody FeedCommentCreateRequest request) {
+		return ResponseEntity.ok(ApiResponse.success(
+			feedCommentService.update(userId, fridgeId, commentId, request)));
 	}
 
 	@DeleteMapping("/{commentId}")

@@ -56,4 +56,9 @@ public class FeedComment {
 		this.dishName = dishName;
 	}
 
+	public void edit(String content, String dishName) {
+		this.content = content;
+		this.dishName = dishName;
+	}
+
 }
