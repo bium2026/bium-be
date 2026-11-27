@@ -30,7 +30,12 @@ public class IngredientMatcher {
 		new String[] {"버터", "땅콩버터"},
 		new String[] {"새우", "새우젓"},
 		new String[] {"두부", "순두부"},
-		new String[] {"오이", "오이지"});
+		new String[] {"오이", "오이지"},
+		new String[] {"달걀", "달걀말이"},
+		new String[] {"고추", "고추냉이"},
+		new String[] {"오이", "오이소박이"},
+		new String[] {"땅콩", "땅콩버터"},
+		new String[] {"감자", "감자전분"});
 
 	// 같은 재료의 다른 표기: 앞 이름을 뒤 이름으로 바꿔서 비교한다 (영양 검색의 계란 -> 달걀과 같다)
 	private static final String ALIAS_FROM = "계란";

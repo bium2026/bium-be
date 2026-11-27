@@ -45,6 +45,11 @@ class IngredientMatcherTest {
 		assertThat(IngredientMatcher.matches("순두부", "두부")).isFalse();
 		assertThat(IngredientMatcher.matches("두부 한 모", "순두부")).isFalse();
 		assertThat(IngredientMatcher.matches("오이", "오이지")).isFalse();
+		assertThat(IngredientMatcher.matches("달걀", "계란말이")).isFalse();
+		assertThat(IngredientMatcher.matches("고추", "고추냉이")).isFalse();
+		assertThat(IngredientMatcher.matches("오이", "오이소박이")).isFalse();
+		assertThat(IngredientMatcher.matches("땅콩", "땅콩버터")).isFalse();
+		assertThat(IngredientMatcher.matches("감자", "감자전분")).isFalse();
 		assertThat(new IngredientMatcher(List.of("양배추", "배추김치")).isAvailable("배추")).isFalse();
 	}
 
@@ -53,13 +58,17 @@ class IngredientMatcherTest {
 		assertThat(IngredientMatcher.matches("양배추", "양배추")).isTrue();
 		assertThat(IngredientMatcher.matches("양배추", "양배추 1/2통")).isTrue();
 		assertThat(IngredientMatcher.matches("토마토", "방울토마토")).isTrue();
+		assertThat(IngredientMatcher.matches("청양고추", "고추")).isTrue();
+		assertThat(IngredientMatcher.matches("알배추", "배추")).isTrue();
+		assertThat(IngredientMatcher.matches("칵테일새우", "새우")).isTrue();
 	}
 
 	@Test
 	void 계란과_달걀은_같은_재료로_본다() {
 		assertThat(IngredientMatcher.matches("계란", "달걀")).isTrue();
 		assertThat(new IngredientMatcher(List.of("달걀")).isAvailable("계란 2개")).isTrue();
-		assertThat(new IngredientMatcher(List.of("계란말이")).isAvailable("달걀")).isTrue();
+		assertThat(new IngredientMatcher(List.of("계란말이")).isAvailable("달걀")).isFalse();
+		assertThat(IngredientMatcher.matches("계란말이", "달걀말이")).isTrue();
 	}
 
 	@Test
