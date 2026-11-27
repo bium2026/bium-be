@@ -234,9 +234,9 @@ Table activity_logs {
   user_id         bigint [ref: > users.id, not null]
   fridge_item_id  bigint [ref: > fridge_items.id, null]
   cooking_log_id  bigint [ref: > cooking_logs.id, null, note: '요리 차감·되돌리기 기록일 때 어느 요리인지. 활동 기록에서 되돌릴 때 쓴다']
-  target_user_id  bigint [ref: > users.id, null, note: '멤버를 내보낸 기록(REMOVE)일 때 내보내진 사람. user_id는 내보낸 주인']
+  target_user_id  bigint [ref: > users.id, null, note: '멤버를 내보낸 기록(REMOVE)이면 내보내진 사람, 주인을 넘긴 기록(TRANSFER_OWNER)이면 새 주인. user_id는 그 일을 한 주인']
   item_name       varchar(50) [note: '재료 삭제 후에도 보이도록 스냅샷']
-  action          varchar(20) [note: 'ADD/UPDATE/MOVE/DELETE/DEDUCT/RESTORE/JOIN/LEAVE/REMOVE']
+  action          varchar(20) [note: 'ADD/UPDATE/MOVE/DELETE/DEDUCT/RESTORE/JOIN/LEAVE/REMOVE/TRANSFER_OWNER']
   detail          json
   created_at      datetime
   indexes { (fridge_id, created_at) }

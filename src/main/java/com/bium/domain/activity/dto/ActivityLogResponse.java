@@ -10,7 +10,8 @@ import com.bium.domain.recipe.entity.CookingLog;
  * 참여·나가기·내보내기처럼 재료와 상관없는 기록은 itemName이 null이다.
  * 요리로 재료를 줄이거나 되돌린 기록은 cookingLogId로 같은 요리를 묶을 수 있고, undone이면 이미 되돌린 요리다.
  * 요리와 상관없는 기록은 cookingLogId가 null이고 undone은 false다.
- * 멤버를 내보낸 기록(REMOVE)만 targetNickname에 내보내진 멤버의 닉네임이 들어가고, 나머지는 null이다.
+ * 멤버를 내보낸 기록(REMOVE)은 targetNickname에 내보내진 멤버의 닉네임이, 주인을 넘긴 기록(TRANSFER_OWNER)은 새 주인의 닉네임이
+ * 들어가고, 나머지는 null이다.
  */
 public record ActivityLogResponse(Long id, String nickname, ActivityAction action, String itemName,
 	Long cookingLogId, boolean undone, String targetNickname,

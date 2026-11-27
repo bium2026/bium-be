@@ -20,6 +20,7 @@ public enum ErrorCode {
 	INVITE_NOT_FOUND(HttpStatus.NOT_FOUND, "초대 코드를 찾을 수 없습니다."),
 	INVITE_EXPIRED(HttpStatus.GONE, "만료된 초대 코드입니다. 새 코드를 받아 주세요."),
 	ALREADY_FRIDGE_MEMBER(HttpStatus.CONFLICT, "이미 이 냉장고의 멤버입니다."),
+	ALREADY_FRIDGE_OWNER(HttpStatus.CONFLICT, "이미 이 냉장고의 소유자입니다."),
 	FRIDGE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "재료를 찾을 수 없습니다."),
 	FRIDGE_DOOR_FULL(HttpStatus.CONFLICT, "문칸에는 재료를 5개까지 넣을 수 있습니다."),
 	CATALOG_NOT_FOUND(HttpStatus.NOT_FOUND, "도감에서 재료를 찾을 수 없습니다."),

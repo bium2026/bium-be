@@ -53,4 +53,8 @@ public class FridgeMember {
 		this.role = role;
 	}
 
+	public void changeRole(MemberRole role) {
+		this.role = role;
+	}
+
 }

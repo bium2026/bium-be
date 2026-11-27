@@ -9,5 +9,6 @@ public enum ActivityAction {
 	RESTORE,
 	JOIN,
 	LEAVE,
-	REMOVE
+	REMOVE,
+	TRANSFER_OWNER
 }
