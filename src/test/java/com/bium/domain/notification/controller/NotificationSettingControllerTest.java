@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -190,6 +191,26 @@ class NotificationSettingControllerTest {
 		ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 		verify(mailSender).send(captor.capture());
 		assertThat(captor.getValue().getText()).contains("우유").doesNotContain("두부");
+	}
+
+	@Test
+	void 알림을_끈_채_보낸_테스트_메일은_정한_시각에_보낸다고_하지_않는다() throws Exception {
+		save("{\"email\": \"me@bium.test\", \"enabled\": false, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
+			.andExpect(status().isOk());
+		perform(post("/api/notification-settings/test-mail")).andExpect(status().isOk());
+
+		save("{\"email\": \"me@bium.test\", \"enabled\": true, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
+			.andExpect(status().isOk());
+		perform(post("/api/notification-settings/test-mail")).andExpect(status().isOk());
+
+		ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+		verify(mailSender, times(2)).send(captor.capture());
+		assertThat(captor.getAllValues().get(0).getText())
+			.contains("알림이 꺼져 있어 매일 알림 메일은 보내지 않아요.")
+			.doesNotContain("정한 시각에 알려 드릴게요");
+		assertThat(captor.getAllValues().get(1).getText())
+			.contains("정한 시각에 알려 드릴게요")
+			.doesNotContain("알림이 꺼져 있어");
 	}
 
 	@Test

@@ -88,7 +88,10 @@ public class ExpiryNotificationService {
 		List<LocalDate> dates = setting.map(saved -> dates(saved, today))
 			.orElseGet(() -> List.of(today, today.plusDays(D3_DAYS)));
 		List<FridgeItem> items = findItems(userId, dates);
-		if (!send(user, email, composer.testSubject(), composer.testBody(user.getNickname(), items, today), items.size())) {
+		// 설정 줄이 없으면 화면 기본값처럼 켜져 있다고 본다
+		boolean enabled = setting.map(NotificationSetting::isEnabled).orElse(true);
+		if (!send(user, email, composer.testSubject(), composer.testBody(user.getNickname(), items, today, enabled),
+			items.size())) {
 			throw new BusinessException(ErrorCode.NOTIFICATION_MAIL_FAILED);
 		}
 		return new NotificationTestResponse(email, items.size());
