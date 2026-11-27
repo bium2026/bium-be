@@ -2,8 +2,11 @@ package com.bium.domain.receipt.service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +39,12 @@ public class ReceiptScanService {
 	// Gemini가 받는 사진 형식
 	private static final Set<String> SUPPORTED_IMAGE_TYPES = Set.of(
 		"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif");
+	private static final byte[] JPEG_SIGNATURE = {(byte)0xFF, (byte)0xD8, (byte)0xFF};
+	private static final byte[] PNG_SIGNATURE = {(byte)0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+	// HEIC·HEIF는 ftyp 상자의 브랜드로 알아본다. 휴대폰 사진은 heic, 그 밖의 HEIF는 mif1·msf1을 대표 브랜드로 쓴다
+	private static final Set<String> HEIC_BRANDS = Set.of(
+		"heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs");
+	private static final Set<String> HEIF_BRANDS = Set.of("mif1", "msf1");
 	// 사진 속 글자를 그대로 옮겨야 해서 레시피 추천보다 낮춘다
 	private static final double TEMPERATURE = 0.1;
 
@@ -79,6 +88,10 @@ public class ReceiptScanService {
 		fridgeAccessValidator.validateMember(fridgeId, userId);
 		String mimeType = getSupportedMimeType(image);
 		byte[] bytes = readBytes(image);
+		// Content-Type은 클라이언트가 정하므로, 사진이 아닌 파일로 Gemini를 부르지 않게 파일 앞부분으로 실제 형식을 확인한다
+		if (!isSupportedImage(bytes)) {
+			throw new BusinessException(ErrorCode.INVALID_RECEIPT_IMAGE);
+		}
 		// 잘못된 요청은 Gemini를 부르지 않으므로 호출 수를 쓰기 전에 거절한다
 		rateLimiter.check(String.valueOf(userId));
 
@@ -123,6 +136,45 @@ public class ReceiptScanService {
 			throw new BusinessException(ErrorCode.INVALID_RECEIPT_IMAGE);
 		}
 		return mimeType;
+	}
+
+	private boolean isSupportedImage(byte[] bytes) {
+		return startsWith(bytes, JPEG_SIGNATURE)
+			|| startsWith(bytes, PNG_SIGNATURE)
+			|| (ascii(bytes, 0).equals("RIFF") && ascii(bytes, 8).equals("WEBP"))
+			|| isHeif(bytes);
+	}
+
+	// ftyp 상자: 크기(4바이트) "ftyp" 대표 브랜드(4) 버전(4) 호환 브랜드(4바이트씩)
+	private boolean isHeif(byte[] bytes) {
+		if (!ascii(bytes, 4).equals("ftyp")) {
+			return false;
+		}
+		String majorBrand = ascii(bytes, 8);
+		if (HEIC_BRANDS.contains(majorBrand) || HEIF_BRANDS.contains(majorBrand)) {
+			return true;
+		}
+		// AVIF도 호환 브랜드에 mif1을 넣으므로 호환 브랜드는 HEIC 브랜드만 본다
+		int boxEnd = Math.min(bytes.length, ByteBuffer.wrap(bytes).getInt());
+		for (int offset = 16; offset + 4 <= boxEnd; offset += 4) {
+			if (HEIC_BRANDS.contains(ascii(bytes, offset))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean startsWith(byte[] bytes, byte[] signature) {
+		return bytes.length >= signature.length
+			&& Arrays.equals(bytes, 0, signature.length, signature, 0, signature.length);
+	}
+
+	// 파일이 짧으면 빈 문자열을 돌려줘 어떤 형식과도 맞지 않게 한다
+	private String ascii(byte[] bytes, int offset) {
+		if (bytes.length < offset + 4) {
+			return "";
+		}
+		return new String(bytes, offset, 4, StandardCharsets.US_ASCII);
 	}
 
 	private byte[] readBytes(MultipartFile image) {
