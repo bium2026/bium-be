@@ -5,9 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +44,8 @@ import jakarta.persistence.EntityManager;
 @Transactional
 class ReceiptScanControllerTest {
 
-	private static final MockMultipartFile IMAGE = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[] {1, 2, 3});
+	private static final byte[] JPEG_BYTES = {(byte)0xFF, (byte)0xD8, (byte)0xFF, (byte)0xE0, 0, 0x10, 'J', 'F', 'I', 'F'};
+	private static final MockMultipartFile IMAGE = new MockMultipartFile("image", "photo.jpg", "image/jpeg", JPEG_BYTES);
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -114,13 +120,67 @@ class ReceiptScanControllerTest {
 			.andExpect(jsonPath("$.error.message").value("영수증 인식에 실패했습니다. 영수증이 잘 보이게 다시 찍어 주세요."));
 	}
 
+	@Test
+	void 형식을_사진으로_적어도_파일_내용이_사진이_아니면_Gemini를_부르지_않고_400을_반환한다() throws Exception {
+		MockMultipartFile notImage = new MockMultipartFile("image", "photo.jpg", "image/jpeg",
+			"<html>not an image</html>".getBytes(StandardCharsets.UTF_8));
+		// HEIC와 같은 상자 구조지만 받지 않는 AVIF 사진
+		MockMultipartFile avif = new MockMultipartFile("image", "photo.heic", "image/heic", ftyp("avif", "avifmif1"));
+
+		for (MockMultipartFile file : new MockMultipartFile[] {notImage, avif}) {
+			scan(file)
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("INVALID_RECEIPT_IMAGE"))
+				.andExpect(jsonPath("$.error.message").value("JPG, PNG, WEBP, HEIC 사진을 올려 주세요."));
+		}
+		verify(geminiClient, never()).generateJson(anyString(), any(byte[].class), anyString(), anyDouble());
+		verify(rateLimiter, never()).check(anyString());
+	}
+
+	@Test
+	void 받는_다섯_형식의_사진은_파일_내용으로_거절하지_않는다() throws Exception {
+		givenGeminiAnswers("""
+			{"isReceipt": true, "items": [{"receiptText": "서울우유 1L", "name": "우유", "emoji": "🥛", "storage": "FRIDGE", "shelfLifeDays": 10}]}
+			""");
+		byte[] png = {(byte)0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0x0D};
+		byte[] webp = "RIFF\0\0\0\0WEBPVP8 ".getBytes(StandardCharsets.US_ASCII);
+		Map<String, MockMultipartFile> files = Map.of(
+			"jpeg", IMAGE,
+			"png", new MockMultipartFile("image", "photo.png", "image/png", png),
+			"webp", new MockMultipartFile("image", "photo.webp", "image/webp", webp),
+			"heic", new MockMultipartFile("image", "photo.heic", "image/heic", ftyp("heic", "mif1heic")),
+			"heif", new MockMultipartFile("image", "photo.heif", "image/heif", ftyp("mif1", "mif1")),
+			// 대표 브랜드가 달라도 호환 브랜드에 HEIC가 있으면 받는다
+			"heic-compatible", new MockMultipartFile("image", "photo.heic", "image/heic", ftyp("iso8", "mif1heic")));
+
+		for (Map.Entry<String, MockMultipartFile> file : files.entrySet()) {
+			scan(file.getValue())
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.items[0].name").value("우유"));
+		}
+	}
+
+	// ISO 미디어 파일의 첫 상자(ftyp): 크기, "ftyp", 대표 브랜드, 버전, 호환 브랜드 순이다
+	private static byte[] ftyp(String majorBrand, String compatibleBrands) {
+		byte[] body = (majorBrand + "\0\0\0\0" + compatibleBrands).getBytes(StandardCharsets.US_ASCII);
+		byte[] box = new byte[8 + body.length];
+		box[3] = (byte)box.length;
+		System.arraycopy("ftyp".getBytes(StandardCharsets.US_ASCII), 0, box, 4, 4);
+		System.arraycopy(body, 0, box, 8, body.length);
+		return box;
+	}
+
 	private void givenGeminiAnswers(String json) {
 		given(geminiClient.generateJson(anyString(), any(byte[].class), anyString(), anyDouble())).willReturn(json);
 	}
 
 	private ResultActions scan() throws Exception {
+		return scan(IMAGE);
+	}
+
+	private ResultActions scan(MockMultipartFile image) throws Exception {
 		return mockMvc.perform(multipart("/api/fridges/{fridgeId}/receipt-scans", fridge.getId())
-			.file(IMAGE)
+			.file(image)
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
 	}
 
