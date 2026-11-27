@@ -25,6 +25,7 @@ import com.bium.domain.ingredient.service.IngredientImageLookupService;
 import com.bium.domain.ingredient.entity.FridgeItem;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
 import com.bium.domain.recipe.dto.CookingCandidatesResponse;
+import com.bium.domain.recipe.dto.CookingCandidatesResponse.Candidate;
 import com.bium.domain.recipe.dto.CookingCandidatesResponse.IngredientCandidates;
 import com.bium.domain.recipe.dto.CookingLogResponse;
 import com.bium.domain.recipe.dto.CookingRequest;
@@ -71,7 +72,8 @@ public class CookingService {
 		List<FridgeItem> fridgeItems = fridgeItemRepository.findAllByFridgeIdAndDeletedAtIsNull(
 			recipe.getFridge().getId());
 		IngredientImageLookup images = ingredientImageLookupService.forItems(userId, fridgeItems);
-		Comparator<FridgeItem> candidateOrder = candidateOrder(LocalDate.now(clock));
+		LocalDate today = LocalDate.now(clock);
+		Comparator<FridgeItem> candidateOrder = candidateOrder(today);
 
 		// 소금·간장 같은 기본 양념은 냉장고에서 관리하지 않으므로 뺄 후보를 찾지 않는다
 		List<IngredientCandidates> ingredients = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(
@@ -81,7 +83,7 @@ public class CookingService {
 				fridgeItems.stream()
 					.filter(item -> IngredientMatcher.matches(ingredient.getName(), item.getName()))
 					.sorted(candidateOrder)
-					.map(item -> FridgeItemResponse.from(item, images))
+					.map(item -> Candidate.of(FridgeItemResponse.from(item, images), isExpired(item, today)))
 					.toList()))
 			.toList();
 		return new CookingCandidatesResponse(recipeId, ingredients);
@@ -169,9 +171,14 @@ public class CookingService {
 	// 레시피 추천은 유통기한이 지난 재료를 없는 재료로 보므로, 지난 재료는 지나지 않은 재료 뒤로 보내 처음에 골라지지 않게 한다
 	private static Comparator<FridgeItem> candidateOrder(LocalDate today) {
 		return Comparator
-			.comparing((FridgeItem item) -> item.getExpiresAt() != null && item.getExpiresAt().isBefore(today))
+			.comparing((FridgeItem item) -> isExpired(item, today))
 			.thenComparing(FridgeItem::getExpiresAt, Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
 			.thenComparing(FridgeItem::getId);
+	}
+
+	// 레시피 추천(RecommendationIngredient.isUsable)과 같이 유통기한 당일까지는 쓸 수 있는 재료로 본다
+	private static boolean isExpired(FridgeItem item, LocalDate today) {
+		return item.getExpiresAt() != null && item.getExpiresAt().isBefore(today);
 	}
 
 	// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
