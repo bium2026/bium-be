@@ -63,14 +63,14 @@ public class FridgeItemService {
 
 	// 도감 재료를 고른 보관 위치의 중앙 칸 맨 뒤에 넣는다. 수량을 받는 화면이 없어 1로 둔다
 	public FridgeItemResponse create(Long userId, Long fridgeId, FridgeItemCreateRequest request) {
-		Fridge fridge = lockFridge(fridgeId);
+		// 멤버가 아니면 냉장고를 잠그기 전에 거절한다
 		fridgeAccessValidator.validateMember(fridgeId, userId);
+		Fridge fridge = lockFridge(fridgeId);
 		// 내 재료와 기본 재료만 넣을 수 있다. 다른 사용자의 도감 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
 		IngredientCatalog catalog = ingredientCatalogRepository.findUsableById(request.catalogId(), userId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.CATALOG_NOT_FOUND));
 
 		LocalDate today = LocalDate.now(clock);
-		Integer lastSortOrder = fridgeItemRepository.findMaxSortOrder(fridgeId, request.storage(), SectionType.CENTER);
 		FridgeItem item = FridgeItem.builder()
 			.fridge(fridge)
 			.catalog(catalog)
@@ -79,7 +79,7 @@ public class FridgeItemService {
 			.quantity(BigDecimal.ONE)
 			.storage(request.storage())
 			.section(SectionType.CENTER)
-			.sortOrder(lastSortOrder == null ? 0 : lastSortOrder + 1)
+			.sortOrder(nextCenterSortOrder(fridgeId, request.storage()))
 			.purchasedAt(today)
 			.expiresAt(catalog.calculateExpiresAt(today))
 			.purchaseCycleDays(catalog.getPurchaseCycleDays())
@@ -94,18 +94,17 @@ public class FridgeItemService {
 
 	// 영수증에서 읽은 재료처럼 도감에 없는 재료를 한 번에 넣는다. 보관 위치마다 중앙 칸 맨 뒤에 보낸 순서대로 놓는다
 	public FridgeItemBulkCreateResponse createAll(Long userId, Long fridgeId, FridgeItemBulkCreateRequest request) {
-		Fridge fridge = lockFridge(fridgeId);
+		// 멤버가 아니면 냉장고를 잠그기 전에 거절한다
 		fridgeAccessValidator.validateMember(fridgeId, userId);
+		Fridge fridge = lockFridge(fridgeId);
 
 		LocalDate today = LocalDate.now(clock);
 		User createdBy = userRepository.getReferenceById(userId);
 		Map<StorageType, Integer> nextSortOrders = new EnumMap<>(StorageType.class);
 		List<FridgeItem> items = new ArrayList<>();
 		for (FridgeItemBulkCreateRequest.Item entry : request.items()) {
-			int sortOrder = nextSortOrders.computeIfAbsent(entry.storage(), storage -> {
-				Integer lastSortOrder = fridgeItemRepository.findMaxSortOrder(fridgeId, storage, SectionType.CENTER);
-				return lastSortOrder == null ? 0 : lastSortOrder + 1;
-			});
+			int sortOrder = nextSortOrders.computeIfAbsent(entry.storage(),
+				storage -> nextCenterSortOrder(fridgeId, storage));
 			nextSortOrders.put(entry.storage(), sortOrder + 1);
 			items.add(FridgeItem.builder()
 				.fridge(fridge)
@@ -155,15 +154,8 @@ public class FridgeItemService {
 	// 끌어다 놓은 칸의 원하는 위치로 옮긴다. 칸이 바뀔 때만 버전이 오르고 활동 기록을 남긴다
 	public FridgeItemResponse changePosition(Long userId, Long itemId, FridgeItemPositionRequest request) {
 		// 재료를 먼저 잠그면 같은 냉장고의 다른 재료를 옮기는 요청과 서로의 재료를 기다리는 교착 상태가 생긴다.
-		// 그래서 냉장고 → 재료 순서로 잠그고, 잠그며 다시 읽어 그사이 지워졌는지 확인한다
-		Long fridgeId = fridgeItemRepository.findFridgeIdById(itemId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
-		lockFridge(fridgeId);
-		FridgeItem item = fridgeItemRepository.findByIdForUpdate(itemId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND));
-		if (!fridgeAccessValidator.isMember(fridgeId, userId)) {
-			throw new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND);
-		}
+		// 그래서 멤버인지 확인한 뒤 냉장고 → 재료 순서로 잠그고, 잠그며 다시 읽어 그사이 지워졌는지 확인한다
+		FridgeItem item = lockAccessibleItem(userId, itemId);
 		validateVersion(item, request.version());
 
 		boolean sectionChanged = item.getStorage() != request.storage() || item.getSection() != request.section();
@@ -189,9 +181,10 @@ public class FridgeItemService {
 
 	// 유통기한 지난 재료처럼 여러 재료를 한 번에 지운다. 하나라도 지울 수 없으면 아무것도 지우지 않는다
 	public FridgeItemBulkDeleteResponse deleteAll(Long userId, Long fridgeId, FridgeItemBulkDeleteRequest request) {
-		// 하나씩 지울 때처럼 냉장고부터 잠가 옮기기 요청과 잠그는 순서를 맞춘다(lockAccessibleItem 참고)
-		lockFridge(fridgeId);
+		// 하나씩 지울 때처럼 멤버인지 확인한 뒤 냉장고부터 잠가 옮기기 요청과 잠그는 순서를 맞춘다(lockAccessibleItem 참고).
+		// 잠그기 전에 읽은 스냅샷 때문에 그사이 다른 요청이 지운 재료를 못 봐도, 재료 버전으로 막혀 409가 된다
 		fridgeAccessValidator.validateMember(fridgeId, userId);
+		lockFridge(fridgeId);
 		// 같은 재료를 두 번 보내도 한 번만 지운다
 		Map<Long, Integer> versions = new LinkedHashMap<>();
 		request.items().forEach(item -> versions.putIfAbsent(item.fridgeItemId(), item.version()));
@@ -212,12 +205,19 @@ public class FridgeItemService {
 		return new FridgeItemBulkDeleteResponse(List.copyOf(versions.keySet()));
 	}
 
-	// 같은 냉장고에 동시에 재료를 넣으면 같은 순번(sortOrder)을 받으므로 냉장고 행을 잠가 하나씩 처리한다.
-	// MySQL REPEATABLE READ에서 일반 조회는 트랜잭션의 첫 조회 시점 스냅샷을 읽으므로, 다른 조회보다 먼저 잠가야
-	// 앞선 요청이 커밋한 재료까지 보고 그 뒤 순번을 매긴다
+	// 같은 냉장고에 동시에 재료를 넣으면 같은 순번(sortOrder)을 받으므로 냉장고 행을 잠가 하나씩 처리한다
 	private Fridge lockFridge(Long fridgeId) {
 		return fridgeRepository.findByIdForUpdate(fridgeId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FRIDGE_NOT_FOUND));
+	}
+
+	// MySQL REPEATABLE READ에서 일반 조회는 트랜잭션의 첫 조회 시점 스냅샷을 읽는다. 멤버인지 확인하는 조회가 냉장고를
+	// 잠그기 전에 스냅샷을 잡아 두므로, 앞선 요청이 커밋한 재료까지 보려고 순번은 칸의 재료를 잠그며(최신 값으로) 읽어 매긴다.
+	// 칸의 재료는 sortOrder 순서로 오므로 마지막 재료 다음 순번을 준다
+	private int nextCenterSortOrder(Long fridgeId, StorageType storage) {
+		List<FridgeItem> centerItems = fridgeItemRepository.findAllInSectionForUpdate(fridgeId, storage,
+			SectionType.CENTER);
+		return centerItems.isEmpty() ? 0 : centerItems.get(centerItems.size() - 1).getSortOrder() + 1;
 	}
 
 	// 재료를 고치거나 지우면 활동 기록을 넣으며 MySQL이 외래 키를 확인하려고 냉장고 행의 잠금을 기다린다.
