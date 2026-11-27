@@ -80,9 +80,10 @@ class CookingControllerTest {
 	@Test
 	void 레시피_재료마다_뺄_후보를_유통기한이_빠른_순으로_돌려주고_기본_양념은_뺀다() throws Exception {
 		FridgeItem lateTofu = item("두부", today.plusDays(8));
-		FridgeItem earlyTofu = item("순두부", today);
+		FridgeItem earlyTofu = item("두부 한 모", today);
 		FridgeItem noExpiryTofu = item("두부", null);
 		item("양파", today.minusDays(1));
+		item("순두부", today);
 
 		getCandidates(recipe.getId(), memberToken)
 			.andExpect(status().isOk())

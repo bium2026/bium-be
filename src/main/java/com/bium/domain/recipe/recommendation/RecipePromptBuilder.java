@@ -26,6 +26,7 @@ public class RecipePromptBuilder {
 		- 아래 목록에는 유통기한이 지난 재료가 제외되어 있어. 목록에 없는 재료는 사용자가 가진 재료로 취급하지 마.
 		- %s
 		- 아래 냉장고 재료 목록에 없는 식재료를 필수 재료로 만들지 마.
+		- 냉장고 재료 목록에 있는 재료를 쓸 때는 목록에 적힌 이름 그대로 써.
 		- 소금, 후추, 식용유, 물, 간장 같은 기본 양념만 예외로 사용할 수 있어.
 		- ingredients에서 required가 true인 항목은 반드시 아래 냉장고 재료 목록 또는 기본 양념이어야 해.
 		- fridgeMatches에는 아래 냉장고 재료 목록에 실제로 있는 재료명만 넣어.
@@ -92,7 +93,7 @@ public class RecipePromptBuilder {
 		      "steps": ["조리 단계 1", "조리 단계 2", "조리 단계 3"],
 		      "tips": ["팁 1", "팁 2"],
 		      "nutrition": { "proteinG": 20, "carbohydrateG": 45, "fatG": 12 },
-		      "fridgeMatches": ["두부", "계란"]
+		      "fridgeMatches": ["두부", "달걀"]
 		    }
 		  ]
 		}
