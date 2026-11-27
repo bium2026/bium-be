@@ -35,6 +35,8 @@ import com.bium.domain.ingredient.entity.IngredientCategory;
 import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.domain.recipe.recommendation.RecommendationRateLimiter;
 import com.bium.domain.user.entity.User;
+import com.bium.global.exception.BusinessException;
+import com.bium.global.exception.ErrorCode;
 import com.bium.global.gemini.GeminiClient;
 
 import jakarta.persistence.EntityManager;
@@ -118,6 +120,17 @@ class ReceiptScanControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error.code").value("RECEIPT_NOT_RECOGNIZED"))
 			.andExpect(jsonPath("$.error.message").value("영수증 인식에 실패했습니다. 영수증이 잘 보이게 다시 찍어 주세요."));
+	}
+
+	@Test
+	void AI_사용_한도를_넘으면_영수증에도_맞는_문구로_503을_반환한다() throws Exception {
+		given(geminiClient.generateJson(anyString(), any(byte[].class), anyString(), anyDouble()))
+			.willThrow(new BusinessException(ErrorCode.AI_QUOTA_EXCEEDED));
+
+		scan()
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.error.code").value("AI_QUOTA_EXCEEDED"))
+			.andExpect(jsonPath("$.error.message").value("AI 사용 한도를 넘었습니다. 잠시 후 다시 시도해 주세요."));
 	}
 
 	@Test
