@@ -1,5 +1,6 @@
 package com.bium.domain.ingredient.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -72,6 +73,34 @@ class BasicIngredientCatalogControllerTest {
 			.andExpect(jsonPath("$.data.ingredients[1].name").value("양파"))
 			.andExpect(jsonPath("$.data.ingredients[1].basic").value(true))
 			.andExpect(jsonPath("$.data.ingredients[2].name").value("두부"));
+	}
+
+	@Test
+	void 목록에_기본_보관_위치를_주고_정해_두지_않은_재료는_null로_준다() throws Exception {
+		IngredientCatalog iceCream = IngredientCatalog.builder()
+			.name("아이스크림")
+			.emoji("🍦")
+			.category(IngredientCategory.DAIRY)
+			.defaultStorage(StorageType.FREEZER)
+			.shelfLifeDays(365)
+			.build();
+		em.persist(iceCream);
+		mockMvc.perform(post("/api/ingredient-catalogs").header(auth(), bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"name": "엄마표 김치", "emoji": "🥬", "category": "ETC", "shelfLifeDays": 30}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.defaultStorage").value(nullValue()));
+
+		mockMvc.perform(get("/api/ingredient-catalogs").header(auth(), bearer()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.ingredients[0].name").value("엄마표 김치"))
+			.andExpect(jsonPath("$.data.ingredients[0].defaultStorage").value(nullValue()))
+			.andExpect(jsonPath("$.data.ingredients[1].name").value("양파"))
+			.andExpect(jsonPath("$.data.ingredients[1].defaultStorage").value("FRIDGE"))
+			.andExpect(jsonPath("$.data.ingredients[3].name").value("아이스크림"))
+			.andExpect(jsonPath("$.data.ingredients[3].defaultStorage").value("FREEZER"));
 	}
 
 	@Test
