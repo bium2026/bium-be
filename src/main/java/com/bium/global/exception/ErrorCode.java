@@ -15,6 +15,7 @@ public enum ErrorCode {
 	DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입한 이메일입니다."),
 	FRIDGE_NOT_FOUND(HttpStatus.NOT_FOUND, "냉장고를 찾을 수 없습니다."),
 	FRIDGE_OWNER_ONLY(HttpStatus.FORBIDDEN, "냉장고 소유자만 할 수 있습니다."),
+	FRIDGE_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 속한 냉장고가 있어 새 냉장고를 만들 수 없습니다."),
 	FRIDGE_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "냉장고 멤버를 찾을 수 없습니다."),
 	OWNER_CANNOT_LEAVE(HttpStatus.CONFLICT, "소유자는 냉장고를 나가거나 내보내질 수 없습니다."),
 	INVITE_NOT_FOUND(HttpStatus.NOT_FOUND, "초대 코드를 찾을 수 없습니다."),

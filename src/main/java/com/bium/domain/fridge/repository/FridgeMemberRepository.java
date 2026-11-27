@@ -13,6 +13,8 @@ public interface FridgeMemberRepository extends JpaRepository<FridgeMember, Long
 
 	boolean existsByFridgeIdAndUserId(Long fridgeId, Long userId);
 
+	boolean existsByUserId(Long userId);
+
 	Optional<FridgeMember> findByFridgeIdAndUserId(Long fridgeId, Long userId);
 
 	// 목록에서 냉장고 이름을 꺼낼 때 냉장고마다 쿼리가 나가지 않게 함께 불러온다

@@ -2,7 +2,6 @@ package com.bium.global.exception;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -75,7 +74,7 @@ class MvcErrorResponseTest {
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
 			.andExpect(jsonPath("$.error.message").value("요청한 주소를 찾을 수 없습니다."));
-		perform(post("/api/fridges"))
+		perform(put("/api/fridges"))
 			.andExpect(status().isMethodNotAllowed())
 			.andExpect(jsonPath("$.error.code").value("METHOD_NOT_ALLOWED"))
 			.andExpect(jsonPath("$.error.message").value("지원하지 않는 요청 방식입니다."));
