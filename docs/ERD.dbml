@@ -244,7 +244,7 @@ Table activity_logs {
 
 Table notification_settings {   // 알림은 이메일로 보낸다
   user_id         bigint [pk, ref: - users.id]
-  email           varchar(255) [note: '알림 받을 주소. 처음엔 로그인 이메일로 채워 보여 주고, 로그인 이메일과 따로 바꾼다']
+  email           varchar(255) [note: '알림 받을 주소. 가입할 때 로그인 이메일로 채우고, 로그인 이메일과 따로 바꾼다']
   enabled         boolean [default: true]
   notify_time     time
   notify_d3       boolean [default: true]

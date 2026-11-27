@@ -21,18 +21,26 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class NotificationSettingService {
 
-	// 설정을 저장한 적이 없을 때 보여 주는 알림 시각
-	static final LocalTime DEFAULT_NOTIFY_TIME = LocalTime.of(9, 0);
+	// 기본 알림 설정의 알림 시각
+	public static final LocalTime DEFAULT_NOTIFY_TIME = LocalTime.of(9, 0);
 
 	private final NotificationSettingRepository settingRepository;
 	private final UserRepository userRepository;
 
-	// 저장한 적이 없으면 기본값(로그인 이메일, 켜짐, 9시, D-3·D-day)을 저장하지 않고 보여 준다
+	// 설정 줄이 없으면(기본 설정을 만들기 전) 기본값(로그인 이메일, 켜짐, 9시, D-3·D-day)을 보여 준다
 	public NotificationSettingResponse get(Long userId) {
 		return settingRepository.findById(userId)
 			.map(this::toResponse)
 			.orElseGet(() -> new NotificationSettingResponse(findUser(userId).getEmail(), true, DEFAULT_NOTIFY_TIME,
 				true, true, null));
+	}
+
+	// 가입할 때 화면이 보여 주는 기본값 그대로 저장해, 설정을 한 번도 저장하지 않아도 알림 메일이 간다
+	@Transactional
+	public void createDefault(User user) {
+		NotificationSetting setting = new NotificationSetting(user, DEFAULT_NOTIFY_TIME);
+		setting.changeEmail(user.getEmail());
+		settingRepository.save(setting);
 	}
 
 	// 받을 주소가 없으면 알림을 켤 수 없다
