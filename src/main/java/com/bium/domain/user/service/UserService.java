@@ -1,10 +1,15 @@
 package com.bium.domain.user.service;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bium.domain.auth.dto.LoginResponse;
+import com.bium.domain.auth.service.AuthService;
+import com.bium.domain.auth.service.RefreshTokenService;
 import com.bium.domain.user.dto.MyProfileResponse;
 import com.bium.domain.user.dto.NicknameChangeRequest;
+import com.bium.domain.user.dto.PasswordChangeRequest;
 import com.bium.domain.user.entity.User;
 import com.bium.domain.user.repository.UserRepository;
 import com.bium.global.exception.BusinessException;
@@ -18,6 +23,9 @@ import lombok.RequiredArgsConstructor;
 public class UserService {
 
 	private final UserRepository userRepository;
+	private final PasswordEncoder passwordEncoder;
+	private final RefreshTokenService refreshTokenService;
+	private final AuthService authService;
 
 	public MyProfileResponse getMe(Long userId) {
 		return MyProfileResponse.from(findUser(userId));
@@ -29,6 +37,22 @@ public class UserService {
 		User user = findUser(userId);
 		user.changeNickname(request.nickname());
 		return MyProfileResponse.from(user);
+	}
+
+	// 비밀번호가 새었을 수 있으니 다른 기기의 로그인 유지(리프레시 토큰)를 모두 끊고, 지금 기기에는 새 토큰을 준다.
+	// 다른 기기의 액세스 토큰은 서버에 남기지 않아 만료(1시간)될 때까지는 쓸 수 있다
+	@Transactional
+	public LoginResponse changePassword(Long userId, PasswordChangeRequest request) {
+		User user = findUser(userId);
+		if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+			throw new BusinessException(ErrorCode.WRONG_PASSWORD);
+		}
+		if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+			throw new BusinessException(ErrorCode.SAME_PASSWORD);
+		}
+		user.changePassword(passwordEncoder.encode(request.newPassword()));
+		refreshTokenService.revokeAll(userId);
+		return authService.issueTokens(user);
 	}
 
 	// 토큰은 맞는데 계정이 없으면 다시 로그인해야 하므로 401로 알린다

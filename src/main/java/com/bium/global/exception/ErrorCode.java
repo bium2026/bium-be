@@ -13,6 +13,9 @@ public enum ErrorCode {
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
 	LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 일치하지 않습니다."),
 	INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "로그인이 만료됐습니다. 다시 로그인해 주세요."),
+	// 로그인한 채로 비밀번호를 확인하는 API라 401로 알리면 화면이 로그인 만료로 보고 토큰을 지운다
+	WRONG_PASSWORD(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다."),
+	SAME_PASSWORD(HttpStatus.BAD_REQUEST, "지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요."),
 	DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입한 이메일입니다."),
 	FRIDGE_NOT_FOUND(HttpStatus.NOT_FOUND, "냉장고를 찾을 수 없습니다."),
 	FRIDGE_OWNER_ONLY(HttpStatus.FORBIDDEN, "냉장고 소유자만 할 수 있습니다."),

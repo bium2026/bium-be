@@ -41,4 +41,9 @@ public class User {
 		this.nickname = nickname;
 	}
 
+	// BCrypt로 암호화한 값을 받는다
+	public void changePassword(String password) {
+		this.password = password;
+	}
+
 }

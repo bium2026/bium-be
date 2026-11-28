@@ -21,7 +21,7 @@ public record SignupRequest(
 	String email,
 
 	@NotBlank(message = "비밀번호를 입력해 주세요.")
-	@Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,20}$", message = "비밀번호는 공백 없이 영문과 숫자를 포함한 8~20자여야 합니다.")
+	@Pattern(regexp = PASSWORD_PATTERN, message = PASSWORD_PATTERN_MESSAGE)
 	String password,
 
 	@NotBlank(message = NICKNAME_REQUIRED_MESSAGE)
@@ -29,6 +29,10 @@ public record SignupRequest(
 	String nickname
 
 ) {
+
+	// 비밀번호를 바꿀 때(PasswordChangeRequest)도 가입 때와 같은 규칙으로 검사한다
+	public static final String PASSWORD_PATTERN = "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,20}$";
+	public static final String PASSWORD_PATTERN_MESSAGE = "비밀번호는 공백 없이 영문과 숫자를 포함한 8~20자여야 합니다.";
 
 	// 닉네임을 바꿀 때(NicknameChangeRequest)도 가입 때와 같은 규칙으로 검사한다
 	public static final String NICKNAME_REQUIRED_MESSAGE = "닉네임을 입력해 주세요.";
