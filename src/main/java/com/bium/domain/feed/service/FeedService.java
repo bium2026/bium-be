@@ -142,6 +142,8 @@ public class FeedService {
 				Long fridgeId = fridge.getId();
 				List<FridgeMember> members = membersByFridge.getOrDefault(fridgeId, List.of());
 				List<FridgeItem> items = itemsByFridge.getOrDefault(fridgeId, List.of());
+				// 자기 냉장고에는 좋아요·저장을 할 수 없으므로, 막기 전에 남은 기록이 있어도 누르지 않은 것으로 준다
+				boolean mine = members.stream().anyMatch(member -> member.getUser().getId().equals(userId));
 				return new FeedFridgeResponse(
 					fridgeId,
 					fridge.getName(),
@@ -155,10 +157,10 @@ public class FeedService {
 						preview(items, StorageType.FREEZER, images),
 						preview(items, StorageType.ROOM, images)),
 					likeCounts.getOrDefault(fridgeId, 0L),
-					liked.contains(fridgeId),
-					saved.contains(fridgeId),
+					!mine && liked.contains(fridgeId),
+					!mine && saved.contains(fridgeId),
 					commentCounts.getOrDefault(fridgeId, 0L),
-					members.stream().anyMatch(member -> member.getUser().getId().equals(userId)));
+					mine);
 			})
 			.toList();
 	}
