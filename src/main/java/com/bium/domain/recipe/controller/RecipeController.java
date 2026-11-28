@@ -2,12 +2,15 @@ package com.bium.domain.recipe.controller;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bium.domain.recipe.dto.RecipePageResponse;
 import com.bium.domain.recipe.dto.RecipeRecommendationRequest;
 import com.bium.domain.recipe.dto.RecipeRecommendationResponse;
 import com.bium.domain.recipe.dto.RecipeResponse;
@@ -40,6 +43,18 @@ public class RecipeController {
 		@PathVariable Long fridgeId, @Valid @RequestBody TargetRecipeRequest request) {
 		return ResponseEntity.ok(ApiResponse.success(
 			recipeService.recommendTarget(userId, fridgeId, request.dishName())));
+	}
+
+	@GetMapping("/api/fridges/{fridgeId}/recipes")
+	public ResponseEntity<ApiResponse<RecipePageResponse>> getRecipes(@LoginUserId Long userId,
+		@PathVariable Long fridgeId, @RequestParam(required = false) Long cursor) {
+		return ResponseEntity.ok(ApiResponse.success(recipeService.getRecipes(userId, fridgeId, cursor)));
+	}
+
+	@DeleteMapping("/api/recipes/{recipeId}")
+	public ResponseEntity<Void> delete(@LoginUserId Long userId, @PathVariable Long recipeId) {
+		recipeService.delete(userId, recipeId);
+		return ResponseEntity.noContent().build();
 	}
 
 	@GetMapping("/api/recipes/{recipeId}")

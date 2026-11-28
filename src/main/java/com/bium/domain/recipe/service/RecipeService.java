@@ -2,8 +2,12 @@ package com.bium.domain.recipe.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -12,6 +16,7 @@ import com.bium.domain.fridge.entity.Fridge;
 import com.bium.domain.fridge.repository.FridgeRepository;
 import com.bium.domain.fridge.service.FridgeAccessValidator;
 import com.bium.domain.ingredient.repository.FridgeItemRepository;
+import com.bium.domain.recipe.dto.RecipePageResponse;
 import com.bium.domain.recipe.dto.RecipeRecommendationResponse;
 import com.bium.domain.recipe.dto.RecipeResponse;
 import com.bium.domain.recipe.entity.Recipe;
@@ -32,6 +37,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class RecipeService {
+
+	static final int PAGE_SIZE = 12;
 
 	private final RecipeRecommendationService recommendationService;
 	private final RecommendationRateLimiter rateLimiter;
@@ -84,6 +91,34 @@ public class RecipeService {
 	public RecipeResponse getRecipe(Long userId, Long recipeId) {
 		Recipe recipe = recipeFinder.findAccessible(userId, recipeId);
 		return RecipeResponse.of(recipe, recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(List.of(recipeId)));
+	}
+
+	// 추천받은 레시피와 만들고 싶은 음식 레시피를 함께 최신순으로 준다
+	@Transactional(readOnly = true)
+	public RecipePageResponse getRecipes(Long userId, Long fridgeId, Long cursor) {
+		fridgeAccessValidator.validateMember(fridgeId, userId);
+		long before = cursor == null ? Long.MAX_VALUE : cursor;
+		// 한 개를 더 읽어 다음 페이지가 있는지 본다
+		List<Recipe> recipes = recipeRepository.findPageByFridgeIdBefore(fridgeId, before,
+			PageRequest.of(0, PAGE_SIZE + 1));
+
+		boolean hasNext = recipes.size() > PAGE_SIZE;
+		List<Recipe> shown = hasNext ? recipes.subList(0, PAGE_SIZE) : recipes;
+		// 레시피마다 재료를 따로 읽지 않게 한 번에 읽어 나눈다
+		Map<Long, List<RecipeIngredient>> ingredients = recipeIngredientRepository.findAllByRecipeIdInOrderByIdAsc(
+				shown.stream().map(Recipe::getId).toList()).stream()
+			.collect(Collectors.groupingBy(ingredient -> ingredient.getRecipe().getId()));
+		List<RecipeResponse> responses = shown.stream()
+			.map(recipe -> RecipeResponse.of(recipe, ingredients.getOrDefault(recipe.getId(), List.of())))
+			.toList();
+		Long nextCursor = hasNext ? shown.get(shown.size() - 1).getId() : null;
+		return new RecipePageResponse(responses, nextCursor);
+	}
+
+	// 냉장고 멤버면 누구나 지울 수 있다. 요리 기록·장보기 목록에 남은 레시피 이름은 그대로 보인다
+	@Transactional
+	public void delete(Long userId, Long recipeId) {
+		recipeFinder.findAccessible(userId, recipeId).delete(LocalDateTime.now(clock));
 	}
 
 	private List<RecommendationIngredient> findIngredients(Long fridgeId) {

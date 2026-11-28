@@ -181,9 +181,10 @@ public class CookingService {
 		return item.getExpiresAt() != null && item.getExpiresAt().isBefore(today);
 	}
 
-	// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다
+	// 다른 냉장고의 레시피는 있는지도 알 수 없게 없는 레시피와 같은 오류를 준다. 지운 레시피도 없는 레시피로 본다
 	private Recipe findAccessibleRecipe(Long userId, Long recipeId) {
 		return recipeRepository.findById(recipeId)
+			.filter(recipe -> !recipe.isDeleted())
 			.filter(recipe -> fridgeAccessValidator.isMember(recipe.getFridge().getId(), userId))
 			.orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NOT_FOUND));
 	}

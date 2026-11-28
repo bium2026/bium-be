@@ -86,6 +86,9 @@ public class Recipe {
 	@CreationTimestamp
 	private LocalDateTime createdAt;
 
+	// 요리 기록·장보기 목록이 레시피를 가리키고 있어 행을 지우지 않고 지운 시각만 남긴다
+	private LocalDateTime deletedAt;
+
 	@Builder
 	public Recipe(Fridge fridge, User requestedBy, RecipeType type, String title, String emoji, String summary,
 		List<String> steps, List<String> tips, Integer cookMinutes, RecipeDifficulty difficulty, Integer servings,
@@ -105,6 +108,14 @@ public class Recipe {
 		this.proteinG = proteinG;
 		this.carbohydrateG = carbohydrateG;
 		this.fatG = fatG;
+	}
+
+	public void delete(LocalDateTime deletedAt) {
+		this.deletedAt = deletedAt;
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 
 }
