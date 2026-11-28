@@ -12,12 +12,16 @@ import com.bium.domain.feed.entity.FeedLike;
 
 public interface FeedLikeRepository extends JpaRepository<FeedLike, FeedId> {
 
-	// 피드 목록에서 냉장고마다 쿼리가 나가지 않게 여러 냉장고의 좋아요 수를 한 번에 센다. 좋아요가 없는 냉장고는 빠진다
+	// 피드 목록에서 냉장고마다 쿼리가 나가지 않게 여러 냉장고의 좋아요 수를 한 번에 센다. 좋아요가 없는 냉장고는 빠진다.
+	// 자기 냉장고에는 좋아요를 누를 수 없으므로, 막기 전에 남았거나 누른 뒤 참여해 멤버가 된 사람의 좋아요는 세지 않는다
 	@Query("select l.fridge.id as fridgeId, count(l) as total from FeedLike l where l.fridge.id in :fridgeIds"
+		+ " and not exists (select m from FridgeMember m where m.fridge.id = l.fridge.id and m.user.id = l.user.id)"
 		+ " group by l.fridge.id")
 	List<FridgeIdCount> countByFridgeIdIn(Collection<Long> fridgeIds);
 
-	@Query("select count(l) from FeedLike l where l.fridge.id = :fridgeId")
+	// 위와 같이 멤버의 좋아요는 세지 않는다
+	@Query("select count(l) from FeedLike l where l.fridge.id = :fridgeId"
+		+ " and not exists (select m from FridgeMember m where m.fridge.id = l.fridge.id and m.user.id = l.user.id)")
 	long countByFridgeId(Long fridgeId);
 
 	@Query("select l.fridge.id from FeedLike l where l.user.id = :userId and l.fridge.id in :fridgeIds")

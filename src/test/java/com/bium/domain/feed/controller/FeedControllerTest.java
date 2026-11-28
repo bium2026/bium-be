@@ -162,6 +162,45 @@ class FeedControllerTest {
 	}
 
 	@Test
+	void 주인과_멤버가_자기_냉장고에_남긴_좋아요와_저장은_좋아요_수와_내_여부에서_뺀다() throws Exception {
+		Fridge fridge = fridge("강희의 냉장고", owner, true);
+		em.persist(new FridgeMember(fridge, member, MemberRole.MEMBER));
+		em.persist(new FeedLike(owner, fridge));
+		em.persist(new FeedLike(member, fridge));
+		em.persist(new FeedSave(member, fridge));
+		em.persist(new FeedLike(viewer, fridge));
+
+		feed(viewerToken)
+			.andExpect(jsonPath("$.data.fridges[0].likeCount").value(1))
+			.andExpect(jsonPath("$.data.fridges[0].liked").value(true));
+		feed(memberToken)
+			.andExpect(jsonPath("$.data.fridges[0].likeCount").value(1))
+			.andExpect(jsonPath("$.data.fridges[0].liked").value(false))
+			.andExpect(jsonPath("$.data.fridges[0].saved").value(false))
+			.andExpect(jsonPath("$.data.fridges[0].mine").value(true));
+		perform(get("/api/feed/fridges/{fridgeId}", fridge.getId()), memberToken)
+			.andExpect(jsonPath("$.data.fridge.likeCount").value(1))
+			.andExpect(jsonPath("$.data.fridge.liked").value(false))
+			.andExpect(jsonPath("$.data.fridge.saved").value(false));
+		// 저장한 냉장고 목록에도 자기 냉장고는 넣지 않는다
+		perform(get("/api/feed/fridges").param("saved", "true"), memberToken)
+			.andExpect(jsonPath("$.data.fridges.length()").value(0));
+	}
+
+	@Test
+	void 좋아요를_누른_뒤_참여하면_좋아요_수에서_빠지고_나가면_다시_센다() throws Exception {
+		Fridge fridge = fridge("강희의 냉장고", owner, true);
+		em.persist(new FeedLike(viewer, fridge));
+		FridgeMember joined = new FridgeMember(fridge, viewer, MemberRole.MEMBER);
+		em.persist(joined);
+
+		feed(memberToken).andExpect(jsonPath("$.data.fridges[0].likeCount").value(0));
+
+		em.remove(joined);
+		feed(memberToken).andExpect(jsonPath("$.data.fridges[0].likeCount").value(1));
+	}
+
+	@Test
 	void saved가_true면_저장한_냉장고_중_지금도_공개된_냉장고만_준다() throws Exception {
 		Fridge savedPublic = fridge("저장한 냉장고", owner, true);
 		Fridge savedThenHidden = fridge("저장한 뒤 숨긴 냉장고", owner, true);
