@@ -213,9 +213,9 @@ class FridgeMemberControllerTest {
 		assertThat(roleOf(firstMember)).isEqualTo(MemberRole.MEMBER);
 		mockMvc.perform(get("/api/fridges/{fridgeId}/activities", fridge.getId())
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
-			.andExpect(jsonPath("$.data[0].action").value("TRANSFER_OWNER"))
-			.andExpect(jsonPath("$.data[0].nickname").value("윤호"))
-			.andExpect(jsonPath("$.data[0].targetNickname").value("강희"));
+			.andExpect(jsonPath("$.data.activities[0].action").value("TRANSFER_OWNER"))
+			.andExpect(jsonPath("$.data.activities[0].nickname").value("윤호"))
+			.andExpect(jsonPath("$.data.activities[0].targetNickname").value("강희"));
 	}
 
 	@Test
