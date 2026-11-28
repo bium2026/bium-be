@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.math.BigDecimal;
@@ -160,13 +161,11 @@ class ExpiryNotificationServiceTest {
 	}
 
 	@Test
-	void 메일을_보내지_못하면_실패로_기록하고_그날은_다시_보내지_않는다() {
+	void 메일을_보내지_못하면_실패로_기록하고_그날_안에서_다음_확인_때_정한_횟수까지만_다시_보낸다() {
 		item(myFridge, "우유", today);
 		willThrow(new MailSendException("SMTP 연결 실패")).given(mailSender).send(any(SimpleMailMessage.class));
 
 		assertThat(notificationService.sendDue(tenOClock)).isZero();
-		assertThat(notificationService.sendDue(tenOClock.plusMinutes(5))).isZero();
-
 		NotificationLog log = singleLog();
 		assertThat(log.getStatus()).isEqualTo(NotificationStatus.FAIL);
 		assertThat(log.getErrorMessage()).contains("SMTP 연결 실패");
@@ -174,6 +173,51 @@ class ExpiryNotificationServiceTest {
 		NotificationSetting reloaded = reloadSetting();
 		assertThat(reloaded.getLastCheckedDate()).isEqualTo(today);
 		assertThat(reloaded.getLastSentDate()).isNull();
+		assertThat(reloaded.getLastFailedAt()).isEqualTo(tenOClock);
+
+		LocalDateTime lastRetry = tenOClock;
+		for (int retry = 1; retry <= ExpiryNotificationService.MAX_RETRIES; retry++) {
+			lastRetry = tenOClock.plusMinutes(5L * retry);
+			assertThat(notificationService.sendDue(lastRetry)).isZero();
+		}
+		// 다시 보내는 횟수를 다 쓰면 그날은 더 보내지 않아 SMTP 장애 때 같은 실패가 끝없이 쌓이지 않는다
+		assertThat(notificationService.sendDue(lastRetry.plusMinutes(5))).isZero();
+
+		verify(mailSender, times(1 + ExpiryNotificationService.MAX_RETRIES)).send(any(SimpleMailMessage.class));
+		assertThat(logs()).hasSize(1 + ExpiryNotificationService.MAX_RETRIES)
+			.allMatch(saved -> saved.getStatus() == NotificationStatus.FAIL);
+		reloaded = reloadSetting();
+		assertThat(reloaded.getLastSentDate()).isNull();
+		assertThat(reloaded.getLastFailedAt()).isEqualTo(lastRetry);
+	}
+
+	@Test
+	void 다시_보내서_보내면_마지막으로_보낸_날을_적고_보내지_못한_때를_지우며_그날은_더_보내지_않는다() {
+		item(myFridge, "우유", today);
+		willThrow(new MailSendException("SMTP 연결 실패")).willDoNothing()
+			.given(mailSender).send(any(SimpleMailMessage.class));
+
+		assertThat(notificationService.sendDue(tenOClock)).isZero();
+		assertThat(notificationService.sendDue(tenOClock.plusMinutes(5))).isEqualTo(1);
+		assertThat(notificationService.sendDue(tenOClock.plusMinutes(10))).isZero();
+
+		verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+		NotificationSetting reloaded = reloadSetting();
+		assertThat(reloaded.getLastSentDate()).isEqualTo(today);
+		assertThat(reloaded.getLastFailedAt()).isNull();
+	}
+
+	@Test
+	void 오늘_잡은_차례를_아직_보내는_중이면_다른_실행이_다시_보내지_않는다() {
+		item(myFridge, "우유", today);
+		// 한 번 보내지 못한 뒤 다시 보낼 차례를 다른 실행이 잡고 아직 보내는 중이다
+		em.createQuery("update NotificationSetting s set s.lastCheckedDate = :today,"
+				+ " s.sendAttemptCount = 2, s.sendFailCount = 1")
+			.setParameter("today", today)
+			.executeUpdate();
+
+		assertThat(notificationService.sendDue(tenOClock)).isZero();
+		verify(mailSender, never()).send(any(SimpleMailMessage.class));
 	}
 
 	@Test
@@ -211,10 +255,13 @@ class ExpiryNotificationServiceTest {
 	}
 
 	private NotificationLog singleLog() {
-		List<NotificationLog> logs = em.createQuery("select l from NotificationLog l", NotificationLog.class)
-			.getResultList();
+		List<NotificationLog> logs = logs();
 		assertThat(logs).hasSize(1);
 		return logs.get(0);
+	}
+
+	private List<NotificationLog> logs() {
+		return em.createQuery("select l from NotificationLog l", NotificationLog.class).getResultList();
 	}
 
 	private NotificationSetting reloadSetting() {

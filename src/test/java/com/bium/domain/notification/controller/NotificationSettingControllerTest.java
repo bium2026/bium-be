@@ -1,6 +1,8 @@
 package com.bium.domain.notification.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -230,6 +232,25 @@ class NotificationSettingControllerTest {
 			.andExpect(jsonPath("$.error.code").value("NOTIFICATION_MAIL_FAILED"));
 		NotificationLog log = em.createQuery("select l from NotificationLog l", NotificationLog.class).getSingleResult();
 		assertThat(log.getStatus()).isEqualTo(NotificationStatus.FAIL);
+	}
+
+	@Test
+	void 예약_알림_메일을_보내지_못한_때를_보여_주고_테스트_메일을_보내지_못한_것은_적지_않는다() throws Exception {
+		save("{\"email\": \"me@bium.test\", \"enabled\": true, \"notifyTime\": \"09:00\", \"notifyD3\": true, \"notifyDday\": true}")
+			.andExpect(jsonPath("$.data.lastFailedAt").value(nullValue()));
+		willThrow(new MailSendException("SMTP 연결 실패")).given(mailSender).send(any(SimpleMailMessage.class));
+		perform(post("/api/notification-settings/test-mail")).andExpect(status().isBadGateway());
+		perform(get("/api/notification-settings"))
+			.andExpect(jsonPath("$.data.lastFailedAt").value(nullValue()));
+
+		LocalDate today = LocalDate.now(clock);
+		em.createQuery("update NotificationSetting s set s.lastFailedAt = :failedAt")
+			.setParameter("failedAt", today.atTime(9, 5))
+			.executeUpdate();
+		em.clear();
+		perform(get("/api/notification-settings"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.lastFailedAt").value(startsWith(today + "T09:05")));
 	}
 
 	@Test

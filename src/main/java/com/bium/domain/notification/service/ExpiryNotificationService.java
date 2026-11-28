@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  * 유통기한이 오늘(D-day)이거나 3일 남은(D-3) 재료를 이메일로 알린다.
  * 메일은 느리고 실패할 수 있어 트랜잭션 밖에서 보내고, 보낼 차례 차지·재료 조회·기록은 각각 짧은 트랜잭션으로 한다.
  * 차례를 잡은 날(lastCheckedDate)과 메일을 실제로 보낸 날(lastSentDate)을 따로 적어, 보내지 않은 날은 보낸 날로 보이지 않게 한다.
+ * 보내지 못하면 그날 안에서 다음 확인 때 MAX_RETRIES번까지 다시 보낸다.
  */
 @Slf4j
 @Service
@@ -37,6 +38,10 @@ import lombok.extern.slf4j.Slf4j;
 public class ExpiryNotificationService {
 
 	private static final int D3_DAYS = 3;
+
+	// SMTP가 잠깐 안 될 때를 넘기되, 계속 안 될 때 실패가 끝없이 쌓이지 않게 하루에 다시 보내는 횟수를 정한다
+	static final int MAX_RETRIES = 3;
+	private static final int MAX_ATTEMPTS = MAX_RETRIES + 1;
 
 	private final NotificationSettingRepository settingRepository;
 	private final NotificationLogRepository logRepository;
@@ -49,13 +54,16 @@ public class ExpiryNotificationService {
 	// 예약 작업이 부른다. 알림 시각이 지났고 오늘 아직 보내지 않은 사용자에게 보내고, 보낸 메일 수를 돌려준다
 	public int sendDue(LocalDateTime now) {
 		LocalDate today = now.toLocalDate();
-		List<NotificationSetting> due = transactionTemplate.execute(status -> settingRepository.findDue(now.toLocalTime(), today));
+		List<NotificationSetting> due = transactionTemplate.execute(status ->
+			settingRepository.findDue(now.toLocalTime(), today, MAX_ATTEMPTS));
 		int sent = 0;
 		for (NotificationSetting setting : due) {
 			Long userId = setting.getUserId();
-			// 다른 실행이 먼저 차지했으면 넘어간다. 실패해도 오늘은 다시 보내지 않아 SMTP 장애 때 같은 실패가 쌓이지 않는다
-			Integer claimed = transactionTemplate.execute(status -> settingRepository.claimToday(userId, today));
-			if (claimed == null || claimed == 0) {
+			// 오늘 처음이면 오늘 차례를, 오늘 잡은 차례가 모두 실패했으면 다시 보낼 차례를 잡는다.
+			// 다른 실행이 먼저 차지했으면 둘 다 잡지 못해 넘어간다
+			Boolean claimed = transactionTemplate.execute(status -> settingRepository.claimToday(userId, today) > 0
+				|| settingRepository.claimRetry(userId, today, MAX_ATTEMPTS) > 0);
+			if (!Boolean.TRUE.equals(claimed)) {
 				continue;
 			}
 			List<FridgeItem> items = findItems(userId, dates(setting, today));
@@ -68,6 +76,8 @@ public class ExpiryNotificationService {
 				composer.body(user.getNickname(), items, today), items.size())) {
 				transactionTemplate.executeWithoutResult(status -> settingRepository.markSent(userId, today));
 				sent++;
+			} else {
+				transactionTemplate.executeWithoutResult(status -> settingRepository.markFailed(userId, today, now));
 			}
 		}
 		return sent;

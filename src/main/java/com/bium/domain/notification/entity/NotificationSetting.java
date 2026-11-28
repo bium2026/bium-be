@@ -1,7 +1,10 @@
 package com.bium.domain.notification.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+
+import org.hibernate.annotations.ColumnDefault;
 
 import com.bium.domain.user.entity.User;
 
@@ -49,6 +52,17 @@ public class NotificationSetting {
 
 	// 예약 알림 메일을 실제로 보낸 마지막 날
 	private LocalDate lastSentDate;
+
+	// lastCheckedDate에 잡은 차례 수와 그중 메일을 보내지 못한 수. 잡은 차례가 모두 실패했을 때만 다음 확인에 다시 보낸다.
+	// 이미 있는 줄과 직접 넣는 줄도 0으로 시작하게 칸 기본값을 둔다
+	@ColumnDefault("0")
+	private int sendAttemptCount;
+
+	@ColumnDefault("0")
+	private int sendFailCount;
+
+	// 마지막으로 보낸 뒤 예약 알림 메일을 보내지 못한 때. 보내면 지운다
+	private LocalDateTime lastFailedAt;
 
 	public NotificationSetting(User user, LocalTime notifyTime) {
 		this.user = user;

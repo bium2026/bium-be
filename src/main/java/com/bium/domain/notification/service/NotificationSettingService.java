@@ -32,7 +32,7 @@ public class NotificationSettingService {
 		return settingRepository.findById(userId)
 			.map(this::toResponse)
 			.orElseGet(() -> new NotificationSettingResponse(findUser(userId).getEmail(), true, DEFAULT_NOTIFY_TIME,
-				true, true, null));
+				true, true, null, null));
 	}
 
 	// 가입할 때 화면이 보여 주는 기본값 그대로 저장해, 설정을 한 번도 저장하지 않아도 알림 메일이 간다
@@ -66,7 +66,7 @@ public class NotificationSettingService {
 
 	private NotificationSettingResponse toResponse(NotificationSetting setting) {
 		return new NotificationSettingResponse(setting.getEmail(), setting.isEnabled(), setting.getNotifyTime(),
-			setting.isNotifyD3(), setting.isNotifyDday(), setting.getLastSentDate());
+			setting.isNotifyD3(), setting.isNotifyDday(), setting.getLastSentDate(), setting.getLastFailedAt());
 	}
 
 }
