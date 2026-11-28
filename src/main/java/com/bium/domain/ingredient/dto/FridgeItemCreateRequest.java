@@ -1,8 +1,12 @@
 package com.bium.domain.ingredient.dto;
 
+import java.math.BigDecimal;
+
 import com.bium.domain.ingredient.entity.StorageType;
 import com.bium.global.util.TextPatterns;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -10,7 +14,8 @@ import jakarta.validation.constraints.Size;
 
 /**
  * 도감 재료를 냉장고에 넣을 때 받는다. 화면은 도감의 이름·아이콘을 채워 보내고, 사용자가 고칠 수 있다.
- * 이름·아이콘 규칙은 재료 수정(FridgeItemUpdateRequest)과 같다. emoji를 비워 보내면 아이콘 없이 넣는다.
+ * 이름·아이콘·수량 규칙은 재료 수정(FridgeItemUpdateRequest)과 같다. emoji를 비워 보내면 아이콘 없이 넣는다.
+ * quantity를 비우면 수량을 세지 않는 재료("있음")로 넣는다.
  */
 public record FridgeItemCreateRequest(
 	@NotNull(message = "도감 재료를 선택해 주세요.")
@@ -23,7 +28,13 @@ public record FridgeItemCreateRequest(
 	@Pattern(regexp = TextPatterns.SINGLE_EMOJI, message = "아이콘은 이모지 한 개로 넣어 주세요.")
 	String emoji,
 	@NotNull(message = "보관 위치를 선택해 주세요.")
-	StorageType storage
+	StorageType storage,
+	@DecimalMin(value = "0", inclusive = false, message = "수량은 0보다 커야 합니다.")
+	@Digits(integer = 6, fraction = 2, message = "수량은 999999.99까지, 소수점 둘째 자리까지 쓸 수 있습니다.")
+	BigDecimal quantity,
+	@Size(max = 10, message = "단위는 10자까지 쓸 수 있습니다.")
+	@Pattern(regexp = NO_CONTROL_CHARACTER, message = "단위에 줄바꿈이나 제어 문자를 쓸 수 없습니다.")
+	String unit
 ) {
 
 	// FridgeItemUpdateRequest와 같은 규칙이다

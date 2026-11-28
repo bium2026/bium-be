@@ -29,6 +29,7 @@ import com.bium.domain.recipe.dto.CookingCandidatesResponse.Candidate;
 import com.bium.domain.recipe.dto.CookingCandidatesResponse.IngredientCandidates;
 import com.bium.domain.recipe.dto.CookingLogResponse;
 import com.bium.domain.recipe.dto.CookingRequest;
+import com.bium.domain.recipe.dto.CookingRequest.UsedItem;
 import com.bium.domain.recipe.dto.CookingUndoResponse;
 import com.bium.domain.recipe.entity.CookingLog;
 import com.bium.domain.recipe.entity.CookingLogItem;
@@ -47,7 +48,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 요리 완료 후 냉장고 재료 차감과 되돌리기를 맡는다.
- * 쓴 재료는 수량과 상관없이 모두 빼며, 무엇을 뺄지는 서버가 추천하고 사용자가 화면에서 확인한다.
+ * 수량을 세는 재료는 쓴 양만큼 줄이고 다 쓰면 지운다. 수량을 세지 않는 재료는 모두 뺀다.
+ * 무엇을 뺄지는 서버가 추천하고 사용자가 화면에서 확인한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -95,18 +97,18 @@ public class CookingService {
 		Long fridgeId = recipe.getFridge().getId();
 
 		// 레시피 재료 두 개가 같은 냉장고 재료로 추천될 수 있어 같은 재료는 한 번만 뺀다
-		Map<Long, Integer> versions = new LinkedHashMap<>();
-		request.items().forEach(item -> versions.putIfAbsent(item.fridgeItemId(), item.version()));
+		Map<Long, UsedItem> usedItems = new LinkedHashMap<>();
+		request.items().forEach(item -> usedItems.putIfAbsent(item.fridgeItemId(), item));
 
-		Map<Long, FridgeItem> items = fridgeItemRepository.findAllById(versions.keySet()).stream()
+		Map<Long, FridgeItem> items = fridgeItemRepository.findAllById(usedItems.keySet()).stream()
 			.collect(Collectors.toMap(FridgeItem::getId, Function.identity()));
-		for (Map.Entry<Long, Integer> entry : versions.entrySet()) {
-			FridgeItem item = items.get(entry.getKey());
+		for (UsedItem used : usedItems.values()) {
+			FridgeItem item = items.get(used.fridgeItemId());
 			// 다른 냉장고의 재료는 있는지도 알 수 없게 없는 재료와 같은 오류를 준다
 			if (item == null || item.isDeleted() || !item.getFridge().getId().equals(fridgeId)) {
 				throw new BusinessException(ErrorCode.FRIDGE_ITEM_NOT_FOUND);
 			}
-			if (!item.getVersion().equals(entry.getValue())) {
+			if (!item.getVersion().equals(used.version())) {
 				throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION);
 			}
 		}
@@ -115,15 +117,17 @@ public class CookingService {
 			new CookingLog(recipe.getFridge(), recipe, userRepository.getReferenceById(userId)));
 		LocalDateTime now = LocalDateTime.now(clock);
 		List<CookingLogItem> logItems = new ArrayList<>();
-		for (Long itemId : versions.keySet()) {
-			FridgeItem item = items.get(itemId);
+		for (UsedItem used : usedItems.values()) {
+			FridgeItem item = items.get(used.fridgeItemId());
 			BigDecimal quantityBefore = item.getQuantity();
+			BigDecimal deducted = item.use(used.quantity(), now);
 			logItems.add(CookingLogItem.builder()
 				.cookingLog(cookingLog)
 				.fridgeItem(item)
 				.quantityBefore(quantityBefore)
-				.deductedQuantity(item.useUp(now))
-				.deletedByDeduction(true)
+				.deductedQuantity(deducted)
+				// 일부만 쓴 재료는 냉장고에 남아 있어, 되돌릴 때 줄인 수량만 더한다
+				.deletedByDeduction(item.isDeleted())
 				.build());
 		}
 		// 그 사이 다른 멤버가 같은 재료를 고쳤으면 여기서 버전 충돌로 막는다.
@@ -131,10 +135,10 @@ public class CookingService {
 		// 차감을 먼저 저장해 재료 행을 잡아 두면 늦은 요청은 버전 충돌(409)로 끝난다
 		fridgeItemRepository.flush();
 		cookingLogItemRepository.saveAll(logItems);
-		versions.keySet().forEach(itemId ->
+		usedItems.keySet().forEach(itemId ->
 			activityLogService.recordCooking(userId, items.get(itemId), cookingLog, ActivityAction.DEDUCT));
 
-		return new CookingLogResponse(cookingLog.getId(), recipeId, List.copyOf(versions.keySet()),
+		return new CookingLogResponse(cookingLog.getId(), recipeId, List.copyOf(usedItems.keySet()),
 			cookingLog.getCookedAt());
 	}
 

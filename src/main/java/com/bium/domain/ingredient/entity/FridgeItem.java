@@ -62,6 +62,7 @@ public class FridgeItem {
 	@Column(length = 16)
 	private String emoji;
 
+	// 수량을 세지 않는 재료(화면의 "있음")는 열이 NOT NULL이라 1로 두고 단위를 비운다. 단위가 있어야 수량을 센다(hasQuantity)
 	@Column(nullable = false, precision = 8, scale = 2)
 	private BigDecimal quantity;
 
@@ -125,11 +126,25 @@ public class FridgeItem {
 		this.createdBy = createdBy;
 	}
 
-	// 재료 수정 모달에서 고칠 수 있는 값만 바꾼다
-	public void update(String name, String emoji, LocalDate expiresAt) {
+	// 재료 수정 모달에서 고칠 수 있는 값만 바꾼다. quantity가 null이면 수량을 세지 않는 재료로 바꾸고 unit은 쓰지 않는다
+	public void update(String name, String emoji, LocalDate expiresAt, BigDecimal quantity, String unit) {
 		this.name = name;
 		this.emoji = emoji;
 		this.expiresAt = expiresAt;
+		// 바꾼 것 없이 저장하면 버전이 오르지 않게, 300과 300.00처럼 같은 수량이거나 이미 수량을 세지 않는 재료면 그대로 둔다
+		if (quantity != null) {
+			if (this.quantity.compareTo(quantity) != 0) {
+				this.quantity = quantity;
+			}
+			this.unit = unit;
+		} else if (hasQuantity()) {
+			this.quantity = BigDecimal.ONE;
+			this.unit = null;
+		}
+	}
+
+	public boolean hasQuantity() {
+		return unit != null;
 	}
 
 	public void delete(LocalDateTime deletedAt) {
@@ -150,12 +165,17 @@ public class FridgeItem {
 		this.sortOrder = sortOrder;
 	}
 
-	// 요리에 쓴 재료를 모두 빼서 냉장고에서 지운다. 뺀 수량을 돌려준다
-	public BigDecimal useUp(LocalDateTime usedAt) {
-		BigDecimal used = quantity;
-		this.quantity = BigDecimal.ZERO;
-		this.deletedAt = usedAt;
-		return used;
+	// 요리에 쓴 만큼 줄이고 뺀 수량을 돌려준다. amount가 null(다 씀)이거나 남은 수량 이상이거나
+	// 수량을 세지 않는 재료면 모두 빼서 냉장고에서 지운다
+	public BigDecimal use(BigDecimal amount, LocalDateTime usedAt) {
+		if (amount == null || !hasQuantity() || amount.compareTo(quantity) >= 0) {
+			BigDecimal used = quantity;
+			this.quantity = BigDecimal.ZERO;
+			this.deletedAt = usedAt;
+			return used;
+		}
+		this.quantity = quantity.subtract(amount);
+		return amount;
 	}
 
 	// 요리 되돌리기. 그사이 다른 멤버가 바꾼 수량을 덮어쓰지 않도록 현재 수량에 뺀 만큼 더한다

@@ -1,5 +1,6 @@
 package com.bium.domain.recipe.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -16,12 +17,13 @@ public record CookingCandidatesResponse(Long recipeId, List<IngredientCandidates
 	}
 
 	// 냉장고 재료 응답(FridgeItemResponse)과 같은 필드에 유통기한이 지났는지(expired)를 더한다
+	// 화면은 quantity가 있는 재료만 쓴 양을 고르게 한다
 	public record Candidate(Long id, String name, String emoji, String imageUrl, LocalDate expiresAt,
-		LocalDate purchasedAt, Integer version, boolean expired) {
+		LocalDate purchasedAt, BigDecimal quantity, String unit, Integer version, boolean expired) {
 
 		public static Candidate of(FridgeItemResponse item, boolean expired) {
 			return new Candidate(item.id(), item.name(), item.emoji(), item.imageUrl(), item.expiresAt(),
-				item.purchasedAt(), item.version(), expired);
+				item.purchasedAt(), item.quantity(), item.unit(), item.version(), expired);
 		}
 	}
 

@@ -49,6 +49,8 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class FridgeItemService {
 
+	private static final String DEFAULT_UNIT = "개";
+
 	private final FridgeItemRepository fridgeItemRepository;
 	private final IngredientCatalogRepository ingredientCatalogRepository;
 	private final FridgeRepository fridgeRepository;
@@ -61,7 +63,7 @@ public class FridgeItemService {
 	private final Clock clock;
 	private final EntityManager entityManager;
 
-	// 도감 재료를 고른 보관 위치의 중앙 칸 맨 뒤에 넣는다. 수량을 받는 화면이 없어 1로 둔다
+	// 도감 재료를 고른 보관 위치의 중앙 칸 맨 뒤에 넣는다. 수량을 비우면 수량을 세지 않는 재료로 넣는다
 	public FridgeItemResponse create(Long userId, Long fridgeId, FridgeItemCreateRequest request) {
 		// 멤버가 아니면 냉장고를 잠그기 전에 거절한다
 		fridgeAccessValidator.validateMember(fridgeId, userId);
@@ -76,7 +78,8 @@ public class FridgeItemService {
 			.catalog(catalog)
 			.name(request.name().strip())
 			.emoji(blankToNull(request.emoji()))
-			.quantity(BigDecimal.ONE)
+			.quantity(request.quantity() == null ? BigDecimal.ONE : request.quantity())
+			.unit(unitOf(request.quantity(), request.unit()))
 			.storage(request.storage())
 			.section(SectionType.CENTER)
 			.sortOrder(nextCenterSortOrder(fridgeId, request.storage()))
@@ -141,7 +144,8 @@ public class FridgeItemService {
 		validateVersion(item, request.version());
 		// 바뀐 값이 없어 UPDATE가 안 나가도 저장할 때 버전을 한 번 더 확인한다
 		entityManager.lock(item, LockModeType.OPTIMISTIC);
-		item.update(request.name().strip(), blankToNull(request.emoji()), request.expiresAt());
+		item.update(request.name().strip(), blankToNull(request.emoji()), request.expiresAt(), request.quantity(),
+			unitOf(request.quantity(), request.unit()));
 		// 올라간 버전을 응답에 담으려고 바로 저장한다
 		fridgeItemRepository.flush();
 		// 바꾼 값 없이 저장만 누르면 버전이 그대로이므로 활동 기록에 쌓지 않는다
@@ -242,6 +246,15 @@ public class FridgeItemService {
 
 	private String blankToNull(String value) {
 		return value == null || value.isBlank() ? null : value.strip();
+	}
+
+	// 수량이 없으면 단위도 쓰지 않는다. 수량만 적고 단위를 비우면 "개"로 본다
+	private String unitOf(BigDecimal quantity, String unit) {
+		if (quantity == null) {
+			return null;
+		}
+		String stripped = blankToNull(unit);
+		return stripped == null ? DEFAULT_UNIT : stripped;
 	}
 
 }

@@ -86,8 +86,8 @@ class FridgeItemConcurrentUpdateTest {
 			FridgeItem mine = fridgeItemRepository.findById(itemId).orElseThrow();
 			// 내가 고치는 사이 다른 멤버가 먼저 고쳐서 저장한다
 			otherMember.executeWithoutResult(otherStatus -> fridgeItemRepository.findById(itemId).orElseThrow()
-				.update("다른 사람이 고친 두부", null, null));
-			mine.update("내가 고친 두부", null, null);
+				.update("다른 사람이 고친 두부", null, null, null, null));
+			mine.update("내가 고친 두부", null, null, null, null);
 		})).isInstanceOf(OptimisticLockingFailureException.class);
 	}
 
@@ -98,7 +98,7 @@ class FridgeItemConcurrentUpdateTest {
 		CountDownLatch checked = new CountDownLatch(1);
 		CountDownLatch commit = new CountDownLatch(1);
 		Future<?> mine = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-			fridgeItemService.update(userId, itemId, new FridgeItemUpdateRequest("두부", null, null, 0));
+			fridgeItemService.update(userId, itemId, new FridgeItemUpdateRequest("두부", null, null, null, null, 0));
 			checked.countDown();
 			try {
 				commit.await(10, TimeUnit.SECONDS);
@@ -109,7 +109,7 @@ class FridgeItemConcurrentUpdateTest {
 		assertThat(checked.await(10, TimeUnit.SECONDS)).isTrue();
 
 		Future<?> other = executor.submit(() -> otherMember.executeWithoutResult(otherStatus ->
-			fridgeItemRepository.findById(itemId).orElseThrow().update("다른 사람이 고친 두부", null, null)));
+			fridgeItemRepository.findById(itemId).orElseThrow().update("다른 사람이 고친 두부", null, null, null, null)));
 		Thread.sleep(300);
 		boolean otherFinishedFirst = other.isDone();
 		commit.countDown();

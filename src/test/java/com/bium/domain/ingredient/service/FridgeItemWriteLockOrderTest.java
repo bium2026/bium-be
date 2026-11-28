@@ -94,13 +94,13 @@ class FridgeItemWriteLockOrderTest {
 			milkId = milk.getId();
 		});
 		cookingLogId = cookingService.cook(userId, recipeId,
-			new CookingRequest(List.of(new CookingRequest.UsedItem(tofuId, 0)))).id();
+			new CookingRequest(List.of(new CookingRequest.UsedItem(tofuId, 0, null)))).id();
 	}
 
 	@Test
 	void 재료를_고칠_때_냉장고부터_잠근다() throws Exception {
 		assertWaitsForFridgeLock(() ->
-			fridgeItemService.update(userId, milkId, new FridgeItemUpdateRequest("저지방 우유", "🥛", null, 0)));
+			fridgeItemService.update(userId, milkId, new FridgeItemUpdateRequest("저지방 우유", "🥛", null, null, null, 0)));
 	}
 
 	@Test
@@ -122,7 +122,7 @@ class FridgeItemWriteLockOrderTest {
 	@Test
 	void 멤버가_아니면_냉장고를_잠그기_전에_재료를_넣지_않는다() throws Exception {
 		assertRejectedWithoutWaiting(() -> fridgeItemService.create(strangerId, fridgeId,
-			new FridgeItemCreateRequest(1L, "두부", "🧊", StorageType.FRIDGE)), ErrorCode.FRIDGE_NOT_FOUND);
+			new FridgeItemCreateRequest(1L, "두부", "🧊", StorageType.FRIDGE, null, null)), ErrorCode.FRIDGE_NOT_FOUND);
 	}
 
 	@Test

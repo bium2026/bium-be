@@ -78,7 +78,7 @@ class CookingUndoConcurrencyTest {
 			itemId = item.getId();
 		});
 		cookingLogId = cookingService.cook(userId, recipeId,
-			new CookingRequest(List.of(new CookingRequest.UsedItem(itemId, 0)))).id();
+			new CookingRequest(List.of(new CookingRequest.UsedItem(itemId, 0, null)))).id();
 	}
 
 	@Test

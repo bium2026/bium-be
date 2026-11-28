@@ -75,7 +75,7 @@ class FridgeItemSortOrderLostUpdateTest {
 			// 내가 두부 이름을 고치는 사이 다른 멤버가 우유를 맨 앞으로 옮겨 두부가 두 번째로 밀린다
 			otherMember.executeWithoutResult(otherStatus -> fridgeItemService.changePosition(userId, milkId,
 				new FridgeItemPositionRequest(StorageType.FRIDGE, SectionType.CENTER, 0, 0)));
-			tofu.update("순두부", null, null);
+			tofu.update("순두부", null, null, null, null);
 		});
 
 		List<String> names = transactionTemplate.execute(status -> em.createQuery(
